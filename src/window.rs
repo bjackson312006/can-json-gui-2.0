@@ -186,7 +186,7 @@ impl Render for AppWindow {
                                         )
                                     })
                                     .child(
-                                        button("file-button")
+                                        button::button("file-button")
                                             .text_color(rgb(0xCCCCCC))
                                             .font_family("Cal Sans UI")
                                             .p(px(5.0))
@@ -199,7 +199,7 @@ impl Render for AppWindow {
                                             .hover(|s| s.bg(rgb(0x2D2D2D))),
                                     )
                                     .child(
-                                        button("edit-button")
+                                        button::button("edit-button")
                                             .text_color(rgb(0xCCCCCC))
                                             .font_family("Cal Sans UI")
                                             .p(px(5.0))
@@ -263,7 +263,7 @@ impl Render for AppWindow {
                                         // On macOS, the native traffic-light buttons handle
                                         // these actions, so we skip the custom set.
                                         div.child(
-                                            button("minimize-button")
+                                            button::button("minimize-button")
                                                 .group("minimize-button")
                                                 .w(px(20.0))
                                                 .h(px(20.0))
@@ -282,7 +282,7 @@ impl Render for AppWindow {
                                                 ),
                                         )
                                         .child(
-                                            button("maximize-button")
+                                            button::button("maximize-button")
                                                 .group("maximize-button")
                                                 .w(px(20.0))
                                                 .h(px(20.0))
@@ -301,7 +301,7 @@ impl Render for AppWindow {
                                                 ),
                                         )
                                         .child(
-                                            button("close-button")
+                                            button::button("close-button")
                                                 .group("close-button")
                                                 .w(px(20.0))
                                                 .h(px(20.0))

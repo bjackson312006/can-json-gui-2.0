@@ -36,7 +36,7 @@ impl Render for OtherPage {
                     .child("nothing here but the buttons work"),
             )
             .child(
-                button("back-to-home")
+                button::button("back-to-home")
                     .rounded(px(10.0))
                     .text_size(px(12.0))
                     .font_weight(gpui::FontWeight(100.0))
