@@ -7,8 +7,10 @@ license = "MIT"
 authors = ["Your Name <you@example.com>"]
 
 [dependencies]
+anyhow = "1.0.103"
 gpui = { package = "gpui-ce", version = "0.3" }
 rust-embed = "8"
+calypso-cangen = { git = "https://github.com/Northeastern-Electric-Racing/Calypso", rev = "dcfd9c8dca4ea8f56049c2d9fdb38fb228732c55" }
 
 [build-dependencies]
 embed-resource = "3"
