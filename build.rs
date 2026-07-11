@@ -2,7 +2,7 @@ fn main() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS");
 
     if target_os.as_deref() == Ok("windows") {
-        let _ = embed_resource::compile("icon.rc", embed_resource::NONE);
+        let _ = embed_resource::compile("packaging/icon.rc", embed_resource::NONE);
     }
 
     if target_os.as_deref() == Ok("linux") {

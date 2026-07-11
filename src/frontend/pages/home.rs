@@ -1,19 +1,19 @@
 use gpui::{Context, Render, Window, div, prelude::*, px, rgb};
 
 use super::{Navigator, Page};
-use crate::components::button;
+use crate::frontend::components::button;
 
-pub struct OtherPage {
+pub struct HomePage {
     nav: Navigator,
 }
 
-impl OtherPage {
+impl HomePage {
     pub fn new(nav: Navigator) -> Self {
         Self { nav }
     }
 }
 
-impl Render for OtherPage {
+impl Render for HomePage {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
@@ -27,16 +27,16 @@ impl Render for OtherPage {
                 div()
                     .text_size(px(20.0))
                     .font_weight(gpui::FontWeight(100.0))
-                    .child("Other Page"),
+                    .child("Home"),
             )
             .child(
                 div()
                     .text_size(px(12.0))
                     .text_color(rgb(0x9C9C9C))
-                    .child("nothing here but the buttons work"),
+                    .child("(smaller text)"),
             )
             .child(
-                button::button("back-to-home")
+                button::button("homepage-button")
                     .rounded(px(10.0))
                     .text_size(px(12.0))
                     .font_weight(gpui::FontWeight(100.0))
@@ -48,11 +48,11 @@ impl Render for OtherPage {
                     .on_click({
                         let nav = self.nav.clone();
                         move |_, _, cx| {
-                            let next = Page::home(nav.clone(), cx);
+                            let next = Page::settings(nav.clone(), cx);
                             nav.navigate(next, cx);
                         }
                     })
-                    .child("back"),
+                    .child("button"),
             )
     }
 }

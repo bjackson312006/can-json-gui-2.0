@@ -1,3 +1,5 @@
+//! Module for the frontend window's different pages.
+
 mod home;
 mod other_page;
 
@@ -6,7 +8,7 @@ pub use other_page::OtherPage;
 
 use gpui::{AnyView, App, Entity, WeakEntity, prelude::*};
 
-use crate::window::AppWindow;
+use crate::frontend::window::AppWindow;
 
 /// A handle pages use to swap themselves out for another page.
 /// Holds a `WeakEntity<AppWindow>` so pages don't keep the window alive.

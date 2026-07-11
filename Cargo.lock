@@ -728,21 +728,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "calypso-cangen"
-version = "0.1.0"
-source = "git+https://github.com/Northeastern-Electric-Racing/Calypso?rev=dcfd9c8dca4ea8f56049c2d9fdb38fb228732c55#dcfd9c8dca4ea8f56049c2d9fdb38fb228732c55"
-dependencies = [
- "proc-macro2",
- "quote",
- "regex",
- "schemars",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "cbc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2134,11 +2119,11 @@ name = "gpui-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "calypso-cangen",
  "embed-resource",
  "gpui-ce",
  "raw-window-handle",
  "rust-embed",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2791,6 +2776,20 @@ dependencies = [
  "futures-util",
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "json"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

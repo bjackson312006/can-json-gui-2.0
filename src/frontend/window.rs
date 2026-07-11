@@ -4,8 +4,9 @@ use gpui::{
     svg, transparent_black,
 };
 
-use crate::components::button;
-use crate::pages::Page;
+use crate::frontend::{
+    components::button, pages::Page, assets::icons,
+};
 
 pub struct AppWindow {
     page: Page,
@@ -40,9 +41,9 @@ impl Render for AppWindow {
         /* Titlebar settings. */
         let titlebar_color = rgb(0x181818);
         let window_title: String = "template-window".to_string();
-        let close_icon = "filled/x.svg";
-        let maximize_icon = if window.is_maximized() {"outline/squares.svg"} else {"outline/square.svg"};
-        let minimize_icon = "outline/minus.svg";
+        let close_icon = icons::Close::get();
+        let maximize_icon = if window.is_maximized() {icons::TwoSquares::get()} else {icons::OneSquare::get()};
+        let minimize_icon = icons::Minus::get();
 
         window.set_client_inset(shadow_size);
 

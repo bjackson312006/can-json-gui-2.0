@@ -105,8 +105,8 @@ jobs:
         run: |
           mkdir -p icon.iconset
           for size in 16 32 128 256 512; do
-            rsvg-convert -h $size icon.svg > icon.iconset/icon_${size}x${size}.png
-            rsvg-convert -h $((size*2)) icon.svg > icon.iconset/icon_${size}x${size}@2x.png
+            rsvg-convert -h $size packaging/icon.svg > icon.iconset/icon_${size}x${size}.png
+            rsvg-convert -h $((size*2)) packaging/icon.svg > icon.iconset/icon_${size}x${size}@2x.png
           done
           iconutil -c icns icon.iconset -o icon.icns
 
