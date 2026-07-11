@@ -1,0 +1,181 @@
+name: Build and Package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux (.deb)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies
+        run: ./scripts/setup.sh
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb --locked
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Package as .deb
+        run: cargo deb --no-build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpui-test-linux-deb
+          path: target/debian/*.deb
+
+  windows:
+    name: Windows (${{ matrix.arch }} .msi)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+          - runner: windows-11-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-wix
+        run: cargo install cargo-wix --locked
+
+      - name: Install WiX Toolset v3
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          # Neither the ARM64 runner nor (reliably) a pinned toolchain ships WiX,
+          # so fetch the v3.14 binaries and expose their folder to cargo-wix.
+          $url = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip"
+          $zip = Join-Path $env:RUNNER_TEMP "wix314-binaries.zip"
+          $dir = Join-Path $env:RUNNER_TEMP "wix3"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dir -Force
+          "WIX_BIN=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Initialize WiX config (only if wix/main.wxs is missing)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path wix/main.wxs)) {
+            cargo wix init --force
+          }
+
+      - name: Package as .msi
+        run: cargo wix --no-build --bin-path "$env:WIX_BIN" --nocapture
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpui-test-windows-${{ matrix.arch }}-msi
+          path: target/wix/*.msi
+
+  macos:
+    name: macOS (Universal .dmg)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin, aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies
+        run: ./scripts/setup.sh
+
+      - name: Generate icon.icns from icon.svg
+        run: |
+          mkdir -p icon.iconset
+          for size in 16 32 128 256 512; do
+            rsvg-convert -h $size icon.svg > icon.iconset/icon_${size}x${size}.png
+            rsvg-convert -h $((size*2)) icon.svg > icon.iconset/icon_${size}x${size}@2x.png
+          done
+          iconutil -c icns icon.iconset -o icon.icns
+
+      - name: Install cargo-bundle
+        run: cargo install cargo-bundle --locked
+
+      - name: Build for x86_64 (Intel)
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Build for arm64 (Apple Silicon)
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Bundle as .app (arm64 layout)
+        run: cargo bundle --release --target aarch64-apple-darwin
+
+      - name: Combine architectures into a universal binary
+        run: |
+          lipo -create \
+            target/x86_64-apple-darwin/release/gpui-test \
+            target/aarch64-apple-darwin/release/gpui-test \
+            -output target/aarch64-apple-darwin/release/bundle/osx/gpui-test.app/Contents/MacOS/gpui-test
+          # Sanity check: should print both architectures
+          lipo -info target/aarch64-apple-darwin/release/bundle/osx/gpui-test.app/Contents/MacOS/gpui-test
+
+      - name: Package .app as .dmg
+        run: |
+          hdiutil create -volname "gpui-test" \
+            -srcfolder "target/aarch64-apple-darwin/release/bundle/osx/gpui-test.app" \
+            -ov -format UDZO \
+            "target/aarch64-apple-darwin/release/bundle/osx/gpui-test.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpui-test-macos-dmg
+          path: target/aarch64-apple-darwin/release/bundle/osx/*.dmg
+
+  release:
+    name: Publish rolling release
+    needs: [linux, windows, macos]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: ls -lR artifacts
+
+      - name: Replace "latest" rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find artifacts -type f)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No artifacts found to upload" >&2
+            exit 1
+          fi
+          gh release delete latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create latest \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Latest build" \
+            --prerelease \
+            --notes "Rolling build from \`main\` @ ${GITHUB_SHA}. Built by workflow run [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})." \
+            "${files[@]}"

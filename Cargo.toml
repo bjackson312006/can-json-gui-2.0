@@ -1,0 +1,43 @@
+[package]
+name = "gpui-test"
+version = "0.1.0"
+edition = "2024"
+description = "A GPUI desktop application."
+license = "MIT"
+authors = ["Your Name <you@example.com>"]
+
+[dependencies]
+gpui = { package = "gpui-ce", version = "0.3" }
+rust-embed = "8"
+
+[build-dependencies]
+embed-resource = "3"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+raw-window-handle = "0.6"
+
+[profile.release]
+opt-level = 3       # max optimization (default for release; explicit for clarity)
+lto = "thin"        # link-time optimization across crates
+codegen-units = 1   # smaller, faster binary at the cost of slower compile
+strip = "symbols"   # strip debug symbols from the binary; cuts size dramatically
+panic = "abort"     # smaller binary, no unwinding cost; use only if you don't catch_unwind
+
+[package.metadata.deb]
+section = "graphics"
+priority = "optional"
+extended-description = "A GPUI desktop application built with the gpui-ce crate."
+assets = [
+    ["target/release/gpui-test", "usr/bin/", "755"],
+    ["icon.svg", "usr/share/icons/hicolor/scalable/apps/gpui-test.svg", "644"],
+    ["packaging/linux/gpui-test.desktop", "usr/share/applications/", "644"],
+]
+
+[package.metadata.bundle]
+name = "gpui-test"
+identifier = "com.example.gpui-test"
+icon = ["icon.icns"]
+category = "public.app-category.developer-tools"
+short_description = "A GPUI desktop application."
+long_description = "A GPUI desktop application built with the gpui-ce crate."
+copyright = "Copyright (c) 2026"

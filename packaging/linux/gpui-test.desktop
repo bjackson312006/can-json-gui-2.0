@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=gpui-test
+Comment=A GPUI desktop application
+Exec=gpui-test
+Icon=gpui-test
+Type=Application
+Categories=Utility;
+Terminal=false
