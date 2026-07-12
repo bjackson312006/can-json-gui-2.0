@@ -22,7 +22,7 @@ pub fn start() {
             ])
             .unwrap();
 
-        let bounds = Bounds::centered(None, size(px(1080.0), px(800.0)), cx);
+        let bounds = Bounds::centered(None, size(px(1440.0), px(800.0)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
