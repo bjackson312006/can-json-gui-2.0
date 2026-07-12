@@ -5,18 +5,26 @@ use quote::quote;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-// Classes to represent levels of the CAN hierarchy
-// For more specific descriptions, refer to the README
-// in Embedded-Base/cangen
-
-// See https://nerdocs.atlassian.net/wiki/spaces/NER/pages/1162018881/Odyssey+Car+Configuration+Framework
+/// An Odyssey message.
+/// 
+/// This is the top level object in the CAN JSON files. A CAN JSON file is basically just a vector of `OdysseyMsg` objects.
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(untagged, expecting = "CANMsg")]
 pub enum OdysseyMsg {
+    /// A normal CAN message. Like 99% of the messages in the JSON files are these.
     Can(CANMsg),
-    Meta(MetaMsg), // to be indexed, but not recieved - MUST GO LAST
+
+    /// A message to be indexed but not recieved.
+    /// 
+    /// This is basically just a subset of `CANMsg`. It is a `CANMsg`, but with no id, points, or other stuff.
+    /// Because of this, `Meta` MUST GO LAST in the num. Otherwise, Serde will mess up serializing it.
+    Meta(MetaMsg),
 }
 
+/// A `MetaMsg`.
+/// 
+/// Like a `CANMsg`, but only containing `desc` and `fields`. Exists (I think?) to register MQTT topics
+/// in the system without actually corresponding to a real CAN message.
 #[derive(JsonSchema, Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct MetaMsg {
@@ -24,9 +32,17 @@ pub struct MetaMsg {
     pub fields: Vec<DumbNetField>,
 }
 
-/**
- *  Class representing a CAN message
- */
+/// Smart guy
+#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct DumbNetField {
+    pub name: String,
+    pub unit: String,
+    pub doc: String,
+    pub desc: Option<String>,
+}
+
+/// Represents a CAN message.
 #[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CANMsg {
@@ -38,16 +54,23 @@ pub struct CANMsg {
     pub key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_ext: Option<bool>,
-    #[serde(default)]
-    pub bidir_mode: BidirMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bidir_mode: Option<BidirMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sim_freq: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clients: Option<Vec<u16>>,
 }
 
+/// Mode for Calypso messages.
+/// 
+/// Calypso can take in MQTT commands, and turn them into CAN frames to be sent on the bus.
+/// This enum lets you configure how Calypso sends those messages.
+/// 
+/// Note: This isn't relavent at all for most normal CAN messages that originate via firmware. This is only meaningful for messages that
+/// Calypso sends.
 #[derive(JsonSchema, Debug, Deserialize, Serialize, PartialEq, Copy, Clone)]
-#[serde(rename_all(deserialize = "lowercase", serialize = "PascalCase"))]
+#[serde(rename_all(deserialize = "lowercase", serialize = "lowercase"))]
 #[derive(Default)]
 pub enum BidirMode {
     Oneshot,
@@ -56,24 +79,10 @@ pub enum BidirMode {
     Configuration,
 }
 
-impl quote::ToTokens for BidirMode {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let path: TokenStream = match self {
-            BidirMode::Broadcast => {
-                quote!(::calypso_cangen::can_types::BidirMode::Broadcast)
-            }
-            BidirMode::Oneshot => quote!(::calypso_cangen::can_types::BidirMode::Oneshot),
-            BidirMode::Configuration => {
-                panic!("Configuration sendable message is not available yet")
-            }
-        };
-        tokens.extend(path);
-    }
-}
-
-/**
- *  Class representing a `NetField` of a CAN message
- */
+/// Represents a `NetField` of a CAN message.
+/// 
+/// A `NetField` packages one or more CANPoints into a MQTT topic, with some extra metadata.
+/// A NetField can be linked to points via the `values` vector.
 #[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct NetField {
@@ -84,21 +93,7 @@ pub struct NetField {
     pub values: Vec<usize>,
 }
 
-/**
- *  Class representing a `NetField` of a Meta message (there are no values)
- */
-#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct DumbNetField {
-    pub name: String,
-    pub unit: String,
-    pub doc: String,
-    pub desc: Option<String>,
-}
-
-/**
- *  Class representing a CAN point of a `NetField`
- */
+/// Represents a CAN Point.
 #[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct CANPoint {
@@ -123,12 +118,17 @@ pub struct CANPoint {
     pub sim: Option<Sim>,
 }
 
+/// Represents a CAN Point's formatter.
 #[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
 pub struct Formatter {
+    /// The operation to perform (typically "divide" or "multiply").
     pub key: String,
+
+    /// The operator's argument (i.e., how much to multiple/divide the value).
     pub arg: f32,
 }
 
+/// Represents a CAN Point's Sim configuration, for Argos purposes.
 #[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum Sim {

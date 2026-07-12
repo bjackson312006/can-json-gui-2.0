@@ -9,6 +9,7 @@ authors = ["Your Name <you@example.com>"]
 [dependencies]
 anyhow = "1.0.103"
 gpui = { package = "gpui-ce", version = "0.3" }
+json = { path = "json" }
 rust-embed = "8"
 thiserror = "2.0.18"
 

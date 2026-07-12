@@ -54,5 +54,26 @@ impl Render for HomePage {
                     })
                     .child("button"),
             )
+            .child(
+                button::button("new")
+                    .rounded(px(10.0))
+                    .text_size(px(12.0))
+                    .font_weight(gpui::FontWeight(100.0))
+                    .py(px(5.0))
+                    .px(px(25.0))
+                    .my(px(10.0))
+                    .bg(rgb(0x2D2D2D))
+                    .hover(|s| s.bg(rgb(0x3B3B3B)))
+                    .on_click(move |_, _, cx| {
+                        let file = match json::CanJson::new() {
+                            Ok(file) => file,
+                            Err(err) => {
+                                println!("Failed to create new json: {:?}", err);
+                                return;
+                            }
+                        };
+                    })
+                    .child("button"),
+            )
     }
 }
