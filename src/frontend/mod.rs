@@ -18,7 +18,16 @@ pub fn start() {
     Application::new().with_assets(Assets).run(|cx: &mut App| {
         cx.text_system()
             .add_fonts(vec![
-                fonts::CalSansUi::get(),
+                fonts::CalSansUiLight::get(),
+                fonts::CalSansUiRegular::get(),
+                fonts::CalSansUiMedium::get(),
+                fonts::CalSansUiSemiBold::get(),
+                fonts::CalSansUiBold::get(),
+                fonts::SatoshiLight::get(),
+                fonts::SatoshiRegular::get(),
+                fonts::SatoshiMedium::get(),
+                fonts::SatoshiBold::get(),
+                fonts::SatoshiBlack::get(),
             ])
             .unwrap();
 

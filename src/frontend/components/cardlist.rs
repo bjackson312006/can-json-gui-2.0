@@ -36,8 +36,10 @@ pub fn cardlist(scroll: &ScrollbarState, messages: &[OdysseyMsg]) -> impl IntoEl
                 .children(messages.iter().enumerate().map(|(i, message)| {
                     super::message_card::message_card(("message-card", i), message)
                 }))
-                .pb(px(16.0)),
+                .pb(px(20.0)),
         )
         .child(Scrollbar::new(scroll.clone()))
+            .mb(px(10.0))
+            .mt(px(10.0))
     }
 }
