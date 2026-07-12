@@ -49,6 +49,8 @@ pub mod fonts {
 
 /// Module for icons.
 pub mod icons {
+    use gpui::{svg, Svg};
+
     /// Helper macro for declaring icons.
     macro_rules! icon {
         ($name:ident, $path:literal) => {
@@ -61,8 +63,8 @@ pub mod icons {
                 #[inline(always)]
                 #[allow(dead_code)]
                 #[doc = concat!("Gets the filepath of the \"", stringify!($name), "\" icon. This type is how GPUI expects.")]
-                pub const fn get() -> &'static str {
-                    $path
+                pub fn get() -> Svg {
+                    svg().path($path)
                 }
             }
         };
@@ -72,4 +74,5 @@ pub mod icons {
     icon!(TwoSquares, "tabler-icons/outline/squares.svg");
     icon!(OneSquare, "tabler-icons/outline/square.svg");
     icon!(Minus, "tabler-icons/outline/minus.svg");
+    icon!(ArrowLeft, "tabler-icons/outline/arrow-left.svg");
 }

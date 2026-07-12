@@ -276,8 +276,7 @@ impl Render for AppWindow {
                                                 .window_control_area(WindowControlArea::Min)
                                                 .on_click(|_, window, _| window.minimize_window())
                                                 .child(
-                                                    svg()
-                                                        .path(minimize_icon)
+                                                    minimize_icon
                                                         .size(px(11.0))
                                                         .text_color(rgb(0xCCCCCC)),
                                                 ),
@@ -295,8 +294,7 @@ impl Render for AppWindow {
                                                 .window_control_area(WindowControlArea::Max)
                                                 .on_click(|_, window, _| toggle_maximize(window))
                                                 .child(
-                                                    svg()
-                                                        .path(maximize_icon)
+                                                    maximize_icon
                                                         .size(px(11.0))
                                                         .text_color(rgb(0xCCCCCC)),
                                                 ),
@@ -314,8 +312,7 @@ impl Render for AppWindow {
                                                 .window_control_area(WindowControlArea::Close)
                                                 .on_click(|_, window, _| window.remove_window())
                                                 .child(
-                                                    svg()
-                                                        .path(close_icon)
+                                                    close_icon
                                                         .size(px(13.0))
                                                         .text_color(rgb(0xCCCCCC)),
                                                 ),
@@ -324,8 +321,8 @@ impl Render for AppWindow {
                             ),
                     )
                     .child(
-                        // Content area
-                        div().flex_1().child(self.page.into_view()),
+                        // Content area.
+                        div().flex_1().min_h_0().child(self.page.into_view()),
                     ),
             )
     }

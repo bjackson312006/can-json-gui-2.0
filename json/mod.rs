@@ -1,14 +1,15 @@
 //! Jason
 
 pub mod error;
+pub mod schema;
 mod parse;
-mod schema;
 
 use std::path::PathBuf;
 
 use crate::{error::{ OpenError, ReadError, SaveAsError, SaveError, WriteError, NewError }, schema::OdysseyMsg};
 
 /// Struct representing a CAN JSON file.
+#[derive(Debug)]
 pub struct CanJson {
     /// The path of the JSON file.
     path: PathBuf,
@@ -24,6 +25,11 @@ impl CanJson {
     pub fn read(path: PathBuf) -> Result<Self, ReadError> {
         let messages: Vec<schema::OdysseyMsg> = parse::read(&path)?;
         Ok(Self { path, messages, })
+    }
+
+    /// The messages contained in this file.
+    pub fn messages(&self) -> &[OdysseyMsg] {
+        &self.messages
     }
 
     /// Writes a `CanJson` instance into a `.json` file.

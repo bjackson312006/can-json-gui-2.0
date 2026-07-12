@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// An Odyssey message.
 /// 
 /// This is the top level object in the CAN JSON files. A CAN JSON file is basically just a vector of `OdysseyMsg` objects.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged, expecting = "CANMsg")]
 pub enum OdysseyMsg {
     /// A normal CAN message. Like 99% of the messages in the JSON files are these.
