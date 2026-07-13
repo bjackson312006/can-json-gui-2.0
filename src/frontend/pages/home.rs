@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use gpui::{Context, Render, Window, div, prelude::*, px, rgb};
+use gpui::{Context, Render, Window, div, prelude::*, px, rgb, point, Hsla};
 
 use super::Navigator;
 use crate::frontend::{assets::fonts::FontFace, components::button};
@@ -28,10 +28,17 @@ impl HomePage {
             recent: crate::backend::recent::load(),
         }
     }
+
+    /// Removes `path` from the recent list, both on disk and in the live view.
+    fn remove_recent(&mut self, path: &Path, cx: &mut Context<Self>) {
+        crate::backend::recent::remove(path);
+        self.recent.retain(|existing| existing != path);
+        cx.notify();
+    }
 }
 
 impl Render for HomePage {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         const BUTTONS_ROUNDED: f32 = 10.0;
 
         let open_button = button::button("home-open")
@@ -120,6 +127,7 @@ impl Render for HomePage {
                     .child("No recent files"),
             )
         } else {
+            let home = cx.entity().downgrade();
             div()
                 .flex()
                 .flex_col()
@@ -137,13 +145,42 @@ impl Render for HomePage {
                     button::button(("recent-file", ix))
                         .flex()
                         .items_center()
+                        .justify_between()
+                        .gap(px(8.0))
+                        .w_full()
                         .px(px(10.0))
                         .py(px(6.0))
-                        .rounded(px(5.0))
+                        .rounded(px(BUTTONS_ROUNDED))
                         .text_color(rgb(SUBTLE_TEXT_COLOR))
                         .text_size(px(12.0))
                         .hover(|s| s.bg(rgb(HOVER_COLOR)))
-                        .child(filename)
+                        .child(
+                            div()
+                                .min_w_0()
+                                .truncate()
+                                .child(filename),
+                        )
+                        .child(
+                            button::button(("recent-remove", ix))
+                                .rounded(px(5.0))
+                                .p(px(3.0))
+                                .text_color(rgb(MUTED_TEXT_COLOR))
+                                .hover(|s| s.bg(rgb(0x4A4949)).text_color(rgb(SUBTLE_TEXT_COLOR)))
+                                .child(
+                                    crate::frontend::assets::icons::Close::get()
+                                        .size(px(10.0))
+                                        .text_color(rgb(MUTED_TEXT_COLOR)),
+                                )
+                                .on_click({
+                                    let home = home.clone();
+                                    let path = path.clone();
+                                    move |_, _, cx| {
+                                        if let Some(home) = home.upgrade() {
+                                            home.update(cx, |home, cx| home.remove_recent(&path, cx));
+                                        }
+                                    }
+                                }),
+                        )
                         .on_click({
                             let nav = self.nav.clone();
                             let path = path.clone();
@@ -163,19 +200,24 @@ impl Render for HomePage {
                 div()
                     .text_color(rgb(MUTED_TEXT_COLOR))
                     .text_size(px(11.0))
-                    .child("Recent"),
+                    .child("RECENT"),
             )
             .child(recent_list);
-
+        
+        const ACTION_BOX_BORDER_COLOR: u32 = 0x454545;
         let action_box = div()
             .flex()
             .flex_row()
+            .border(px(2.0))
+            .border_color(rgb(ACTION_BOX_BORDER_COLOR))
             .gap(px(24.0))
             .p(px(20.0))
-            .rounded(px(12.0))
+            .rounded(px(BUTTONS_ROUNDED))
             .bg(rgb(BOX_COLOR))
             .child(left_section)
             .child(right_section);
+
+        const COLUMN_GAP: f32 = 300.0;
 
         div()
             .size_full()
@@ -187,17 +229,25 @@ impl Render for HomePage {
             .child(
                 div()
                     .flex()
-                    .flex_col()
-                    .items_start()
-                    .gap(px(16.0))
+                    .flex_row()
+                    .gap(px(COLUMN_GAP))
                     .child(
                         div()
-                            .text_color(rgb(0xEEEEEE))
-                            .text_size(px(40.0))
-                            .font_face(crate::frontend::assets::fonts::CalSansUiBold)
-                            .child("can-json-gui"),
+                            .flex()
+                            .flex_col()
+                            .items_start()
+                            .gap(px(16.0))
+                            .child(
+                                div()
+                                    .text_color(rgb(0xEEEEEE))
+                                    .text_size(px(40.0))
+                                    .font_face(crate::frontend::assets::fonts::CalSansUiBold)
+                                    .child("can-json-gui"),
+                            )
+                            .child(action_box),
                     )
-                    .child(action_box),
+                    // Right col thats empty for rn
+                    .child(div().child("temp text")),
             )
     }
 }

@@ -59,3 +59,24 @@ pub fn push(file: &Path) {
         .join("\n");
     let _ = fs::write(&store, text);
 }
+
+/// Removes `file` from the recent list, if present.
+pub fn remove(file: &Path) {
+    let Some(store) = store_path() else {
+        return;
+    };
+
+    let mut list = load();
+    let before = list.len();
+    list.retain(|existing| existing != file);
+    if list.len() == before {
+        return; // nothing to remove; leave the store untouched
+    }
+
+    let text = list
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let _ = fs::write(&store, text);
+}
