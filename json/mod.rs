@@ -141,4 +141,9 @@ impl CanJson {
             None => "UNKNOWN FILENAME".into(),
         }
     }
+
+    /// Gets the full path of this file on disk.
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
 }

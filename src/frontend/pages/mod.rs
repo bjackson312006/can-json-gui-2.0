@@ -41,6 +41,7 @@ impl Page {
     }
 
     pub fn editor(nav: Navigator, cx: &mut App, file: CanJson) -> Self {
+        crate::backend::recent::push(file.path());
         Page::Editor(cx.new(|_| Editor::new(nav, file)))
     }
 
