@@ -2,4 +2,4 @@
 
 mod cardlist;
 mod message_card;
-mod sidebar;
+pub(in crate::frontend::pages::editor) mod sidebar;

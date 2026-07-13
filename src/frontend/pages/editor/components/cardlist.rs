@@ -16,7 +16,7 @@ impl Editor {
                 .flex_row()
                 .flex_1()
                 .min_h_0()
-                .w(px(220.0))
+                .w_full()
                 .items_center()
                 .text_center()
                 .justify_center()
@@ -29,7 +29,8 @@ impl Editor {
                 .flex_row()
                 .flex_1()
                 .min_h_0()
-                .w(px(220.0))
+                .w_full()
+                .px(px(12.0))
                 .child(
                     div()
                         .id("message-list")

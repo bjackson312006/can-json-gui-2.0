@@ -117,8 +117,10 @@ impl Editor {
 
 fn meta_card(message: &MetaMsg) -> Div {
     div()
+        .min_w_0()
         .child(
             div()
+                .truncate()
                 .child(message.desc.clone())
                 .font_face(CalSansUiLight)
                 .text_size(px(12.0))
@@ -135,8 +137,10 @@ fn meta_card(message: &MetaMsg) -> Div {
 
 fn can_card(message: &CANMsg) -> Div {
     div()
+        .min_w_0()
         .child(
             div()
+                .truncate()
                 .child(message.desc.clone())
                 .font_face(CalSansUiLight)
                 .text_size(px(12.0))

@@ -5,17 +5,22 @@ pub mod schema;
 mod parse;
 
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::{error::{ OpenError, ReadError, SaveAsError, SaveError, WriteError, NewError }, schema::OdysseyMsg};
 
 /// Struct representing a CAN JSON file.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CanJson {
     /// The path of the JSON file.
     path: PathBuf,
 
     /// The messages held inside the JSON file.
     messages: Vec<schema::OdysseyMsg>,
+
+    /// Snapshot of `messages` as of the last read/write (i.e. what's currently
+    /// on disk).
+    saved: Rc<Vec<schema::OdysseyMsg>>,
 }
 
 impl CanJson {
@@ -24,7 +29,15 @@ impl CanJson {
     /// * `path` - The filepath of the `.json` to read in.
     pub fn read(path: PathBuf) -> Result<Self, ReadError> {
         let messages: Vec<schema::OdysseyMsg> = parse::read(&path)?;
-        Ok(Self { path, messages, })
+        let saved = Rc::new(messages.clone());
+        Ok(Self { path, messages, saved })
+    }
+
+    /// Writes a `CanJson` instance into a `.json` file.
+    pub fn write(&mut self) -> Result<(), WriteError> {
+        parse::write(&self.path, self.messages.as_slice())?;
+        self.saved = Rc::new(self.messages.clone());
+        Ok(())
     }
 
     /// The messages contained in this file.
@@ -46,12 +59,7 @@ impl CanJson {
 
     /// Adds a new message to the end of the JSON.
     pub fn add_message(&mut self) {
-        self.messages.push(OdysseyMsg::default())
-    }
-
-    /// Writes a `CanJson` instance into a `.json` file.
-    pub fn write(&self) -> Result<(), WriteError> {
-        parse::write(&self.path, self.messages.as_slice())
+        self.messages.push(OdysseyMsg::default());
     }
 
     /// Opens a `.json` file via the OS's dialog box.
@@ -68,7 +76,7 @@ impl CanJson {
     }
 
     /// Saves a file to its path.
-    pub fn save(&self) -> Result<(), SaveError> {
+    pub fn save(&mut self) -> Result<(), SaveError> {
         match self.write() {
             Ok(_) => Ok(()),
             Err(err) => Err(SaveError::WriteError(err))
@@ -96,9 +104,10 @@ impl CanJson {
             None => { return Err(NewError::Cancelled); }
         };
 
-        let json = CanJson {
+        let mut json = CanJson {
             path: path,
             messages: Vec::new(),
+            saved: Rc::new(Vec::new()),
         };
 
         match json.write() {
@@ -107,5 +116,24 @@ impl CanJson {
         }
 
         Ok( json )
+    }
+
+    /// Checks whether the in-memory file differs from the version last saved to
+    /// disk (i.e. whether there are unsaved changes).
+    pub fn is_mutated(&self) -> bool {
+        self.messages != *self.saved
+    }
+
+    /// Gets the current filename of the file.
+    pub fn filename(&self) -> String {
+        match self.path.file_name() {
+            Some(filename) => { 
+                match filename.to_str() {
+                    Some(string) => string.into(),
+                    None => "UNKNOWN FILENAME".into(),
+                }
+            },
+            None => "UNKNOWN FILENAME".into(),
+        }
     }
 }

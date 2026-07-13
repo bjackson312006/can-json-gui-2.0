@@ -1,11 +1,11 @@
 use gpui::{
     Context, CursorStyle, Decorations, HitboxBehavior, Hsla, MouseButton, Pixels, Point,
     ResizeEdge, Size, Window, WindowControlArea, black, canvas, div, point, prelude::*, px, rgb,
-    svg, transparent_black,
+    svg, transparent_black, IntoElement, Div
 };
 
 use crate::frontend::{
-    components::button, pages::Page, assets::icons,
+    assets::{fonts::FontFace, icons}, components::button, pages::{Editor, Page},
 };
 
 pub struct AppWindow {
@@ -21,10 +21,75 @@ impl AppWindow {
         self.page = page;
         cx.notify();
     }
+
+    fn window_title(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        const WINDOW_TITLE: &'static str = "can-json-gui";
+        const WINDOW_TITLE_COLOR: u32 = 0xCCCCCC;
+        fn homepage() -> Div {
+            div()
+                .flex()
+                .flex_row()
+                .child(
+                    div()
+                    .font_face(crate::frontend::assets::fonts::CalSansUiLight)
+                    .text_size(px(10.0))
+                    .text_color(rgb(WINDOW_TITLE_COLOR))
+                    .child(format!("{WINDOW_TITLE} - "))
+                )
+                .child(
+                    div()
+                    .font_face(crate::frontend::assets::fonts::CalSansUiLight)
+                    .text_size(px(10.0))
+                    .text_color(rgb(WINDOW_TITLE_COLOR))
+                    .child(format!("Home"))
+                )
+        }
+
+        fn editor(editor: &Editor) -> Div {
+            const UNSAVED_INDICATOR_COLOR: u32 = 0xb8973b;
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .child(
+                    div()
+                    .font_face(crate::frontend::assets::fonts::CalSansUiLight)
+                    .text_size(px(10.0))
+                    .text_color(rgb(WINDOW_TITLE_COLOR))
+                    .child(format!("{WINDOW_TITLE} - "))
+                )
+                .child(
+                    div()
+                    .font_face(crate::frontend::assets::fonts::CalSansUiLight)
+                    .text_size(px(10.0))
+                    .text_color(rgb(WINDOW_TITLE_COLOR))
+                    .child(format!("Editing {}", editor.file().filename()))
+                )
+                .child(
+                    crate::frontend::assets::icons::Circle::get()
+                        .size(px(8.0))
+                        .ml(px(4.0))
+                        .text_color(rgb(UNSAVED_INDICATOR_COLOR))
+                        .opacity(if editor.file().is_mutated() { 1.0 } else { 0.0 }),
+                )
+        }
+        
+        div()
+            .flex()
+            .flex_row()
+            .child(
+                match &self.page {
+                    Page::Home(_) => homepage(),
+                    Page::Editor(page) => {
+                        editor(page.read(cx))
+                    },
+                }
+            )
+    }
 }
 
 impl Render for AppWindow {
-    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         /* Main window settings. */
         let decorations = window.window_decorations();
         let rounding = px(10.0);
@@ -40,7 +105,6 @@ impl Render for AppWindow {
 
         /* Titlebar settings. */
         let titlebar_color = rgb(0x181818);
-        let window_title: String = "template-window".to_string();
         let close_icon = icons::Close::get();
         let maximize_icon = if window.is_maximized() {icons::TwoSquares::get()} else {icons::OneSquare::get()};
         let minimize_icon = icons::Minus::get();
@@ -239,7 +303,7 @@ impl Render for AppWindow {
                                             .font_weight(gpui::FontWeight(50.0))
                                             .line_height(gpui::relative(1.0))
                                             .window_control_area(WindowControlArea::Drag)
-                                            .child(window_title),
+                                            .child(self.window_title(cx)),
                                     ),
                             )
                             .child(

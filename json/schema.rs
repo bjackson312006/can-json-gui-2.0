@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// An Odyssey message.
 /// 
 /// This is the top level object in the CAN JSON files. A CAN JSON file is basically just a vector of `OdysseyMsg` objects.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(untagged, expecting = "CANMsg")]
 pub enum OdysseyMsg {
     /// A normal CAN message. Like 99% of the messages in the JSON files are these.
@@ -31,7 +31,7 @@ impl Default for OdysseyMsg {
 /// 
 /// Like a `CANMsg`, but only containing `desc` and `fields`. Exists (I think?) to register MQTT topics
 /// in the system without actually corresponding to a real CAN message.
-#[derive(JsonSchema, Deserialize, Serialize, Debug, Clone)]
+#[derive(JsonSchema, Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct MetaMsg {
     pub desc: String,
@@ -48,7 +48,7 @@ impl Default for MetaMsg {
 }
 
 /// Smart guy
-#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
+#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct DumbNetField {
     pub name: String,
@@ -58,7 +58,7 @@ pub struct DumbNetField {
 }
 
 /// Represents a CAN message.
-#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
+#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct CANMsg {
     pub id: String,
@@ -114,7 +114,7 @@ pub enum BidirMode {
 /// 
 /// A `NetField` packages one or more CANPoints into a MQTT topic, with some extra metadata.
 /// A NetField can be linked to points via the `values` vector.
-#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
+#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct NetField {
     pub name: String,
@@ -125,7 +125,7 @@ pub struct NetField {
 }
 
 /// Represents a CAN Point.
-#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
+#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct CANPoint {
     pub size: usize,
@@ -150,7 +150,7 @@ pub struct CANPoint {
 }
 
 /// Represents a CAN Point's formatter.
-#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
+#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug, PartialEq)]
 pub struct Formatter {
     /// The operation to perform (typically "divide" or "multiply").
     pub key: String,
@@ -160,7 +160,7 @@ pub struct Formatter {
 }
 
 /// Represents a CAN Point's Sim configuration, for Argos purposes.
-#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug)]
+#[derive(JsonSchema, Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum Sim {
     SimRange {

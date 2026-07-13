@@ -119,4 +119,6 @@ pub mod icons {
     icon!(ArrowLeft, "tabler-icons/outline/arrow-left.svg");
     icon!(Trash, "tabler-icons/outline/trash.svg");
     icon!(Create, "tabler-icons/outline/square-rounded-plus.svg");
+    icon!(Messages, "tabler-icons/outline/messages.svg");
+    icon!(Circle, "tabler-icons/filled/circle.svg");
 }
