@@ -116,6 +116,19 @@ impl AppWindow {
         }
     }
 
+    /// Opens a specific file path in the editor.
+    pub fn open_path(&mut self, path: std::path::PathBuf, cx: &mut Context<Self>) {
+        self.close_menus(cx);
+        match CanJson::read(path) {
+            Ok(file) => {
+                let nav = Navigator::new(cx.weak_entity());
+                let page = Page::editor(nav, cx, file);
+                self.set_page(page, cx);
+            }
+            Err(err) => eprintln!("Open file failed: {err:?}"),
+        }
+    }
+
     /// "Save" button on "File" menu.
     /// If not on the editor page, this does nothing.
     pub fn file_save(&mut self, cx: &mut Context<Self>) {

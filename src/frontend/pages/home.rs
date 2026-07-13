@@ -1,10 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use gpui::{Context, Render, Window, div, prelude::*, px, rgb};
 
-use super::{Navigator, Page};
+use super::Navigator;
 use crate::frontend::{assets::fonts::FontFace, components::button};
-use json::CanJson;
 
 const BACKGROUND_COLOR: u32 = 0x1F1F1F;
 const BOX_COLOR: u32 = 0x2A2A2A;
@@ -29,21 +28,6 @@ impl HomePage {
             recent: crate::backend::recent::load(),
         }
     }
-
-    /// Opens `file` in the editor, or logs the error and stays put.
-    fn open_file(
-        nav: &Navigator,
-        cx: &mut gpui::App,
-        file: Result<CanJson, impl std::fmt::Debug>,
-    ) {
-        match file {
-            Ok(file) => {
-                let next = Page::editor(nav.clone(), cx, file);
-                nav.navigate(next, cx);
-            }
-            Err(err) => eprintln!("Failed to open file: {err:?}"),
-        }
-    }
 }
 
 impl Render for HomePage {
@@ -62,19 +46,26 @@ impl Render for HomePage {
             .hover(|s| s.bg(rgb(ACCENT_BLUE_HOVER)))
             .text_color(rgb(0xFFFFFF))
             .text_size(px(13.0))
+            .font_face(crate::frontend::assets::fonts::CalSansUiBold)
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .child(crate::frontend::assets::icons::FolderOpen::get())
-                        .size(px(13.0))
-                        .text_color(rgb(0xCCCCCC))
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(
+                        crate::frontend::assets::icons::FolderOpen::get()
+                            .size(px(16.0))
+                            .text_color(rgb(0xFFFFFF)),
+                    )
                     .child("Open")
-                )
-            .font_face(crate::frontend::assets::fonts::CalSansUiBold)
+                    .line_height(gpui::relative(1.0))
+            )
             .on_click({
                 let nav = self.nav.clone();
-                move |_, _, cx| Self::open_file(&nav, cx, CanJson::open())
+                move |_, _, cx| {
+                    nav.with_app(cx, |app, cx| app.file_open(cx));
+                }
             });
 
         let new_button = button::button("home-new")
@@ -92,10 +83,25 @@ impl Render for HomePage {
             .text_color(rgb(SUBTLE_TEXT_COLOR))
             .text_size(px(13.0))
             .font_face(crate::frontend::assets::fonts::CalSansUiBold)
-            .child("New")
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(
+                        crate::frontend::assets::icons::SquareRoundedPlus::get()
+                            .size(px(16.0))
+                            .text_color(rgb(SUBTLE_TEXT_COLOR)),
+                    )
+                    .child("New")
+                    .line_height(gpui::relative(1.0))
+            )
             .on_click({
                 let nav = self.nav.clone();
-                move |_, _, cx| Self::open_file(&nav, cx, CanJson::new())
+                move |_, _, cx| {
+                    nav.with_app(cx, |app, cx| app.file_new(cx));
+                }
             });
 
         let left_section = div()
@@ -142,7 +148,7 @@ impl Render for HomePage {
                             let nav = self.nav.clone();
                             let path = path.clone();
                             move |_, _, cx| {
-                                Self::open_file(&nav, cx, CanJson::read(path.clone()))
+                                nav.with_app(cx, |app, cx| app.open_path(path.clone(), cx));
                             }
                         })
                 }))
