@@ -71,15 +71,18 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      - name: Initialize WiX config (only if wix/main.wxs is missing)
+      - name: Stage WiX config
         shell: pwsh
         run: |
-          if (-not (Test-Path wix/main.wxs)) {
-            cargo wix init --force
-          }
+          # Use our committed, shortcut-enabled WiX config (packaging/windows)
+          # instead of letting `cargo wix init` regenerate its default template,
+          # which creates no Start Menu / Desktop shortcuts. cargo-wix looks for
+          # wix/main.wxs, so stage it there.
+          New-Item -ItemType Directory -Force -Path wix | Out-Null
+          Copy-Item packaging/windows/main.wxs wix/main.wxs -Force
 
       - name: Package as .msi
-        run: cargo wix --no-build --bin-path "$env:WIX_BIN" --nocapture
+        run: cargo wix --package gpui-test --no-build --bin-path "$env:WIX_BIN" --nocapture
 
       - uses: actions/upload-artifact@v4
         with:

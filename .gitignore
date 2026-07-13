@@ -1,2 +1,5 @@
 /target
 /.claude
+
+# Transient WiX staging dir; the real config lives in packaging/windows/.
+/wix

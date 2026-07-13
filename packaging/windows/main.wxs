@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<!--
+  WiX installer definition for gpui-test (Windows .msi).
+
+  This replaces the default template `cargo wix init` generates. That default is
+  CLI-oriented: it installs the .exe and appends its folder to PATH, but creates
+  NO shortcuts, so the app never shows up in the Start Menu or on the desktop.
+
+  This version instead:
+    * installs the .exe under Program Files,
+    * creates an all-users Start Menu shortcut (searchable in the Start Menu),
+    * creates a Desktop shortcut,
+    * uses a fixed UpgradeCode so version-to-version upgrades actually replace
+      the previous install (the auto-generated template used a fresh random
+      code every CI run, so upgrades never matched).
+
+  The release workflow copies this to wix/main.wxs (where cargo-wix looks) before
+  packaging. Paths below are relative to the crate root, which is cargo-wix's
+  working directory when it invokes candle/light.
+-->
+
+<?if $(sys.BUILDARCH) = x64 or $(sys.BUILDARCH) = arm64 ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?endif ?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product
+        Id="*"
+        Name="gpui-test"
+        UpgradeCode="359BC0FB-2BD7-4048-9B96-A6F0937EDD59"
+        Manufacturer="gpui-test"
+        Language="1033"
+        Codepage="1252"
+        Version="$(var.Version)">
+
+        <Package
+            Id="*"
+            Keywords="Installer"
+            Description="gpui-test installer"
+            Manufacturer="gpui-test"
+            InstallerVersion="450"
+            Languages="1033"
+            Compressed="yes"
+            InstallScope="perMachine"
+            SummaryCodepage="1252" />
+
+        <MajorUpgrade
+            Schedule="afterInstallInitialize"
+            DowngradeErrorMessage="A newer version of gpui-test is already installed. Setup will now exit." />
+
+        <MediaTemplate EmbedCab="yes" />
+
+        <!-- Icon shown in Add/Remove Programs. The shortcuts themselves inherit
+             the icon embedded in the .exe (via packaging/icon.rc), so they don't
+             need an explicit Icon. -->
+        <Icon Id="ProductICO" SourceFile="packaging\icon.ico" />
+        <Property Id="ARPPRODUCTICON" Value="ProductICO" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="$(var.PlatformProgramFilesFolder)">
+                <Directory Id="APPLICATIONFOLDER" Name="gpui-test">
+                    <Component Id="binary0" Guid="*">
+                        <File
+                            Id="exe0"
+                            Name="gpui-test.exe"
+                            Source="$(var.CargoTargetBinDir)\gpui-test.exe"
+                            KeyPath="yes" />
+                    </Component>
+                </Directory>
+            </Directory>
+
+            <!-- All-users Start Menu shortcut (this is a perMachine install). -->
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="gpui-test">
+                    <Component Id="StartMenuShortcutComponent" Guid="*">
+                        <Shortcut
+                            Id="StartMenuShortcut"
+                            Name="gpui-test"
+                            Description="gpui-test"
+                            Target="[#exe0]"
+                            WorkingDirectory="APPLICATIONFOLDER" />
+                        <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+                        <RegistryValue
+                            Root="HKMU"
+                            Key="Software\gpui-test"
+                            Name="StartMenuShortcut"
+                            Type="integer"
+                            Value="1"
+                            KeyPath="yes" />
+                    </Component>
+                </Directory>
+            </Directory>
+
+            <!-- Desktop shortcut. -->
+            <Directory Id="DesktopFolder">
+                <Component Id="DesktopShortcutComponent" Guid="*">
+                    <Shortcut
+                        Id="DesktopShortcut"
+                        Name="gpui-test"
+                        Description="gpui-test"
+                        Target="[#exe0]"
+                        WorkingDirectory="APPLICATIONFOLDER" />
+                    <RegistryValue
+                        Root="HKMU"
+                        Key="Software\gpui-test"
+                        Name="DesktopShortcut"
+                        Type="integer"
+                        Value="1"
+                        KeyPath="yes" />
+                </Component>
+            </Directory>
+        </Directory>
+
+        <Feature
+            Id="MainApplication"
+            Title="gpui-test"
+            Level="1"
+            ConfigurableDirectory="APPLICATIONFOLDER"
+            Display="expand"
+            AllowAdvertise="no"
+            Absent="disallow">
+            <ComponentRef Id="binary0" />
+            <ComponentRef Id="StartMenuShortcutComponent" />
+            <ComponentRef Id="DesktopShortcutComponent" />
+        </Feature>
+
+        <SetProperty Id="ARPINSTALLLOCATION" Value="[APPLICATIONFOLDER]" After="CostFinalize" />
+
+        <!-- Standard install UI with a directory chooser. -->
+        <Property Id="WIXUI_INSTALLDIR" Value="APPLICATIONFOLDER" />
+        <UIRef Id="WixUI_InstallDir" />
+        <WixVariable Id="WixUILicenseRtf" Value="packaging\windows\License.rtf" />
+    </Product>
+</Wix>
