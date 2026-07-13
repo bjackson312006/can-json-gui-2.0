@@ -277,14 +277,12 @@ impl Render for AppWindow {
                     MouseButton::Left,
                     cx.listener(|app, _, _, cx| {
                         app.close_menus(cx);
-                        cx.stop_propagation();
                     }),
                 )
         });
 
         div()
             .id("window-backdrop")
-            .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &NewFile, _, cx| this.file_new(cx)))
             .on_action(cx.listener(|this, _: &OpenFile, _, cx| this.file_open(cx)))
             .on_action(cx.listener(|this, _: &SaveFile, _, cx| this.file_save(cx)))
@@ -586,8 +584,11 @@ impl Render for AppWindow {
                             ),
                     )
                     .child(
-                        // Content area.
-                        div().flex_1().min_h_0().child(self.page.into_view()),
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .track_focus(&self.focus_handle) // track_focus() is here so keyboard shortcuts work. If you put track_focus() at the window root it breaks the titlebar on windows for some reason
+                            .child(self.page.into_view()),
                     )
                     // Little guy that dismisses the File menu on an outside click
                     .children(menu_backdrop),
