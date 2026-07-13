@@ -3,7 +3,7 @@
 //! 
 //! Who up scrolling they bar
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gpui::{
@@ -15,6 +15,9 @@ const SCROLLBAR_GAP_PX: f32 = 6.0;
 const THUMB_MIN_LEN_PX: f32 = 24.0;
 const THUMB_COLOR: u32 = 0x4A4A4A;
 const THUMB_HOVER_COLOR: u32 = 0x6A6A6A;
+
+/// Space reserved at the top and bottom of the track that the thumb won't enter.
+const THUMB_INSET_PX: f32 = 10.0;
 
 // Marker
 struct ThumbDrag;
@@ -32,6 +35,9 @@ impl Render for DragGhost {
 pub struct ScrollbarState {
     handle: ScrollHandle,
     drag: Rc<RefCell<Option<f32>>>,
+
+    /// Set when a programmatic scroll (e.g. `scroll_to_bottom`) is requested.
+    pending_scroll: Rc<Cell<bool>>,
 }
 
 impl Default for ScrollbarState {
@@ -57,12 +63,19 @@ impl ScrollbarState {
         Self {
             handle: ScrollHandle::new(),
             drag: Rc::new(RefCell::new(None)),
+            pending_scroll: Rc::new(Cell::new(false)),
         }
     }
 
     /// Attach this to the scroll container: `div().overflow_y_scroll().track_scroll(state.handle())`.
     pub fn handle(&self) -> &ScrollHandle {
         &self.handle
+    }
+
+    /// Request a scroll to the bottom of the list.
+    pub fn scroll_to_bottom(&self) {
+        self.handle.scroll_to_bottom();
+        self.pending_scroll.set(true);
     }
 
     fn is_active(&self) -> bool {
@@ -76,17 +89,19 @@ impl ScrollbarState {
         if viewport <= 0.0 || max <= 0.5 {
             return None;
         }
-        let thumb_len = (viewport * (viewport / (viewport + max)))
+        // Usable track length after reserving an inset at the top and bottom.
+        let track = (viewport - 2.0 * THUMB_INSET_PX).max(THUMB_MIN_LEN_PX);
+        let thumb_len = (track * (viewport / (viewport + max)))
             .max(THUMB_MIN_LEN_PX)
-            .min(viewport);
-        let travel = (viewport - thumb_len).max(0.0);
+            .min(track);
+        let travel = (track - thumb_len).max(0.0);
         // Offset is negative as you scroll down, so negate to get 0..=max.
         let progress = (-f32::from(self.handle.offset().y) / max).clamp(0.0, 1.0);
         Some(Metrics {
             max,
             thumb_len,
             travel,
-            thumb_top: progress * travel,
+            thumb_top: THUMB_INSET_PX + progress * travel,
         })
     }
 
@@ -112,8 +127,9 @@ impl ScrollbarState {
         if m.travel <= 0.0 {
             return;
         }
-        let thumb_top = (self.track_y(window_y) - grab).clamp(0.0, m.travel);
-        let progress = thumb_top / m.travel;
+        let thumb_top =
+            (self.track_y(window_y) - grab).clamp(THUMB_INSET_PX, THUMB_INSET_PX + m.travel);
+        let progress = (thumb_top - THUMB_INSET_PX) / m.travel;
         let x = self.handle.offset().x;
         self.handle.set_offset(point(x, px(-(progress * m.max))));
     }
@@ -136,11 +152,15 @@ impl Scrollbar {
 }
 
 impl RenderOnce for Scrollbar {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let state = self.state;
 
         if state.is_active() && !cx.has_active_drag() {
             state.end_drag();
+        }
+
+        if state.pending_scroll.replace(false) {
+            window.request_animation_frame();
         }
 
         let metrics = state.metrics();

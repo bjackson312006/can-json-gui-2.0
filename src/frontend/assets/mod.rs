@@ -117,4 +117,6 @@ pub mod icons {
     icon!(OneSquare, "tabler-icons/outline/square.svg");
     icon!(Minus, "tabler-icons/outline/minus.svg");
     icon!(ArrowLeft, "tabler-icons/outline/arrow-left.svg");
+    icon!(Trash, "tabler-icons/outline/trash.svg");
+    icon!(Create, "tabler-icons/outline/square-rounded-plus.svg");
 }

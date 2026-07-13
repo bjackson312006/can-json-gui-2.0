@@ -32,6 +32,23 @@ impl CanJson {
         &self.messages
     }
 
+    /// Gets a message from an index.
+    pub fn message(&self, index: usize) -> &OdysseyMsg {
+        &self.messages[index]
+    }
+
+    /// Removes the message at `index` from this file.
+    pub fn remove_message(&mut self, index: usize) {
+        if index < self.messages.len() {
+            self.messages.remove(index);
+        }
+    }
+
+    /// Adds a new message to the end of the JSON.
+    pub fn add_message(&mut self) {
+        self.messages.push(OdysseyMsg::default())
+    }
+
     /// Writes a `CanJson` instance into a `.json` file.
     pub fn write(&self) -> Result<(), WriteError> {
         parse::write(&self.path, self.messages.as_slice())

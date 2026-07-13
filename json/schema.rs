@@ -21,6 +21,12 @@ pub enum OdysseyMsg {
     Meta(MetaMsg),
 }
 
+impl Default for OdysseyMsg {
+    fn default() -> Self {
+        OdysseyMsg::Can(CANMsg::default())
+    }
+}
+
 /// A `MetaMsg`.
 /// 
 /// Like a `CANMsg`, but only containing `desc` and `fields`. Exists (I think?) to register MQTT topics
@@ -30,6 +36,15 @@ pub enum OdysseyMsg {
 pub struct MetaMsg {
     pub desc: String,
     pub fields: Vec<DumbNetField>,
+}
+
+impl Default for MetaMsg {
+    fn default() -> Self {
+        MetaMsg {
+            desc: "A CAN message.".into(),
+            fields: vec![],
+        }
+    }
 }
 
 /// Smart guy
@@ -60,6 +75,22 @@ pub struct CANMsg {
     pub sim_freq: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clients: Option<Vec<u16>>,
+}
+
+impl Default for CANMsg {
+    fn default() -> Self {
+        CANMsg {
+            id: "0x00".into(),
+            desc: "A CAN message.".into(),
+            points: vec![],
+            fields: vec![],
+            key: None,
+            is_ext: None,
+            bidir_mode: None,
+            sim_freq: None,
+            clients: None,
+        }
+    }
 }
 
 /// Mode for Calypso messages.
