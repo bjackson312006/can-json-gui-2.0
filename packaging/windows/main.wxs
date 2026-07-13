@@ -61,56 +61,43 @@
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="$(var.PlatformProgramFilesFolder)">
                 <Directory Id="APPLICATIONFOLDER" Name="gpui-test">
+                    <!-- The .exe plus its Start Menu and Desktop shortcuts, all in
+                         ONE component. Keeping the shortcuts in the same component
+                         as the file (whose file is the keypath, in Program Files)
+                         makes the whole thing unambiguously per-machine, which
+                         avoids ICE57, and lets the shortcuts target [#exe0] without
+                         the ICE69 cross-component reference. The `Directory`
+                         attribute on each Shortcut is what places the .lnk into the
+                         Start Menu / Desktop even though the component lives here. -->
                     <Component Id="binary0" Guid="*">
                         <File
                             Id="exe0"
                             Name="gpui-test.exe"
                             Source="$(var.CargoTargetBinDir)\gpui-test.exe"
                             KeyPath="yes" />
-                    </Component>
-                </Directory>
-            </Directory>
-
-            <!-- All-users Start Menu shortcut (this is a perMachine install). -->
-            <Directory Id="ProgramMenuFolder">
-                <Directory Id="ApplicationProgramsFolder" Name="gpui-test">
-                    <Component Id="StartMenuShortcutComponent" Guid="*">
                         <Shortcut
                             Id="StartMenuShortcut"
+                            Directory="ProgramMenuFolder"
                             Name="gpui-test"
                             Description="gpui-test"
                             Target="[#exe0]"
                             WorkingDirectory="APPLICATIONFOLDER" />
-                        <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
-                        <RegistryValue
-                            Root="HKMU"
-                            Key="Software\gpui-test"
-                            Name="StartMenuShortcut"
-                            Type="integer"
-                            Value="1"
-                            KeyPath="yes" />
+                        <Shortcut
+                            Id="DesktopShortcut"
+                            Directory="DesktopFolder"
+                            Name="gpui-test"
+                            Description="gpui-test"
+                            Target="[#exe0]"
+                            WorkingDirectory="APPLICATIONFOLDER" />
                     </Component>
                 </Directory>
             </Directory>
 
-            <!-- Desktop shortcut. -->
-            <Directory Id="DesktopFolder">
-                <Component Id="DesktopShortcutComponent" Guid="*">
-                    <Shortcut
-                        Id="DesktopShortcut"
-                        Name="gpui-test"
-                        Description="gpui-test"
-                        Target="[#exe0]"
-                        WorkingDirectory="APPLICATIONFOLDER" />
-                    <RegistryValue
-                        Root="HKMU"
-                        Key="Software\gpui-test"
-                        Name="DesktopShortcut"
-                        Type="integer"
-                        Value="1"
-                        KeyPath="yes" />
-                </Component>
-            </Directory>
+            <!-- Standard shell folders the shortcuts above are placed into. In a
+                 perMachine install these resolve to the all-users Start Menu and
+                 Desktop, so the shortcut is searchable in the Start Menu. -->
+            <Directory Id="ProgramMenuFolder" />
+            <Directory Id="DesktopFolder" />
         </Directory>
 
         <Feature
@@ -122,8 +109,6 @@
             AllowAdvertise="no"
             Absent="disallow">
             <ComponentRef Id="binary0" />
-            <ComponentRef Id="StartMenuShortcutComponent" />
-            <ComponentRef Id="DesktopShortcutComponent" />
         </Feature>
 
         <SetProperty Id="ARPINSTALLLOCATION" Value="[APPLICATIONFOLDER]" After="CostFinalize" />
