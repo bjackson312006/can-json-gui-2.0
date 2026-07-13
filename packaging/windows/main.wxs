@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="windows-1252"?>
 <!--
+  big C generated this file
+
   WiX installer definition for gpui-test (Windows .msi).
 
   This replaces the default template `cargo wix init` generates. That default is
@@ -61,20 +63,31 @@
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="$(var.PlatformProgramFilesFolder)">
                 <Directory Id="APPLICATIONFOLDER" Name="gpui-test">
-                    <!-- The .exe plus its Start Menu and Desktop shortcuts, all in
-                         ONE component. Keeping the shortcuts in the same component
-                         as the file (whose file is the keypath, in Program Files)
-                         makes the whole thing unambiguously per-machine, which
-                         avoids ICE57, and lets the shortcuts target [#exe0] without
-                         the ICE69 cross-component reference. The `Directory`
-                         attribute on each Shortcut is what places the .lnk into the
-                         Start Menu / Desktop even though the component lives here. -->
+                    <!-- The .exe lives in its own per-machine component: the file in
+                         Program Files is the keypath, so this component is
+                         unambiguously per-machine (no per-user data), which keeps
+                         ICE57 happy. -->
                     <Component Id="binary0" Guid="*">
                         <File
                             Id="exe0"
                             Name="gpui-test.exe"
                             Source="$(var.CargoTargetBinDir)\gpui-test.exe"
                             KeyPath="yes" />
+                    </Component>
+
+                    <!-- Non-advertised shortcuts must live in their OWN component
+                         whose keypath is an HKCU registry value, not a file. Windows
+                         Installer treats shortcuts as per-user data, so:
+                           * ICE43 requires the keypath to be an HKCU registry value.
+                           * ICE57 forbids mixing this per-user data with the
+                             per-machine .exe file in a single component.
+                         Splitting them out (with the dummy HKCU keypath below) makes
+                         this component purely per-user and satisfies both checks. The
+                         `Directory` attribute on each Shortcut places the .lnk into
+                         the Start Menu / Desktop. Target uses [#exe0]; since this
+                         component and binary0 share the same Feature, there's no
+                         ICE69 cross-component warning. -->
+                    <Component Id="shortcuts0" Guid="*">
                         <Shortcut
                             Id="StartMenuShortcut"
                             Directory="ProgramMenuFolder"
@@ -89,6 +102,13 @@
                             Description="gpui-test"
                             Target="[#exe0]"
                             WorkingDirectory="APPLICATIONFOLDER" />
+                        <RegistryValue
+                            Root="HKCU"
+                            Key="Software\gpui-test"
+                            Name="installed"
+                            Type="integer"
+                            Value="1"
+                            KeyPath="yes" />
                     </Component>
                 </Directory>
             </Directory>
@@ -109,6 +129,7 @@
             AllowAdvertise="no"
             Absent="disallow">
             <ComponentRef Id="binary0" />
+            <ComponentRef Id="shortcuts0" />
         </Feature>
 
         <SetProperty Id="ARPINSTALLLOCATION" Value="[APPLICATIONFOLDER]" After="CostFinalize" />
