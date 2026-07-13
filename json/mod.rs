@@ -5,7 +5,6 @@ pub mod schema;
 mod parse;
 
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use crate::{error::{ OpenError, ReadError, SaveAsError, SaveError, WriteError, NewError }, schema::OdysseyMsg};
 
@@ -19,8 +18,8 @@ pub struct CanJson {
     messages: Vec<schema::OdysseyMsg>,
 
     /// Snapshot of `messages` as of the last read/write (i.e. what's currently
-    /// on disk).
-    saved: Rc<Vec<schema::OdysseyMsg>>,
+    /// on disk). Compared against `messages` to detect unsaved changes.
+    saved: Vec<schema::OdysseyMsg>,
 }
 
 impl CanJson {
@@ -29,14 +28,14 @@ impl CanJson {
     /// * `path` - The filepath of the `.json` to read in.
     pub fn read(path: PathBuf) -> Result<Self, ReadError> {
         let messages: Vec<schema::OdysseyMsg> = parse::read(&path)?;
-        let saved = Rc::new(messages.clone());
+        let saved = messages.clone();
         Ok(Self { path, messages, saved })
     }
 
     /// Writes a `CanJson` instance into a `.json` file.
     pub fn write(&mut self) -> Result<(), WriteError> {
         parse::write(&self.path, self.messages.as_slice())?;
-        self.saved = Rc::new(self.messages.clone());
+        self.saved = self.messages.clone();
         Ok(())
     }
 
@@ -60,6 +59,12 @@ impl CanJson {
     /// Adds a new message to the end of the JSON.
     pub fn add_message(&mut self) {
         self.messages.push(OdysseyMsg::default());
+    }
+
+    /// Replaces this file's message content, keeping the path and the on-disk
+    /// `saved` baseline. Used for applying undos.
+    pub fn set_messages(&mut self, messages: Vec<OdysseyMsg>) {
+        self.messages = messages;
     }
 
     /// Opens a `.json` file via the OS's dialog box.
@@ -107,7 +112,7 @@ impl CanJson {
         let mut json = CanJson {
             path: path,
             messages: Vec::new(),
-            saved: Rc::new(Vec::new()),
+            saved: Vec::new(),
         };
 
         match json.write() {
@@ -121,7 +126,7 @@ impl CanJson {
     /// Checks whether the in-memory file differs from the version last saved to
     /// disk (i.e. whether there are unsaved changes).
     pub fn is_mutated(&self) -> bool {
-        self.messages != *self.saved
+        self.messages != self.saved
     }
 
     /// Gets the current filename of the file.

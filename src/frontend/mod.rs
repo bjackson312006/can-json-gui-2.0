@@ -31,6 +31,8 @@ pub fn start() {
             ])
             .unwrap();
 
+        window::bind_app_keys(cx);
+
         let bounds = Bounds::centered(None, size(px(1440.0), px(800.0)), cx);
         cx.open_window(
             WindowOptions {
@@ -53,7 +55,7 @@ pub fn start() {
 
                     let nav = Navigator::new(cx.weak_entity());
                     let home_page = Page::home(nav, cx);
-                    AppWindow::new(home_page)
+                    AppWindow::new(home_page, cx)
                 })
             },
         )

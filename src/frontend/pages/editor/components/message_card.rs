@@ -107,7 +107,6 @@ impl Editor {
                 if let Some(editor) = editor.upgrade() {
                     editor.update(cx, |editor, cx| {
                         editor.remove_message(message_index);
-                        if selected { editor.selected_index = None; }
                         cx.notify();
                     });
                 }

@@ -1,25 +1,167 @@
 use gpui::{
-    Context, CursorStyle, Decorations, HitboxBehavior, Hsla, MouseButton, Pixels, Point,
-    ResizeEdge, Size, Window, WindowControlArea, black, canvas, div, point, prelude::*, px, rgb,
-    svg, transparent_black, IntoElement, Div
+    App, Context, CursorStyle, Decorations, FocusHandle, HitboxBehavior, Hsla, KeyBinding,
+    MouseButton, Pixels, Point, ResizeEdge, Size, Window, WindowControlArea, black, canvas, div,
+    point, prelude::*, px, rgb, svg, transparent_black, IntoElement, Div
 };
 
 use crate::frontend::{
-    assets::{fonts::FontFace, icons}, components::button, pages::{Editor, Page},
+    assets::{fonts::FontFace, icons}, components::{button, file_dialog, edit_dialog}, pages::{Editor, Navigator, Page},
 };
+use json::CanJson;
+
+gpui::actions!(file_menu, [NewFile, OpenFile, SaveFile, SaveFileAs, GoHome, QuitApp]);
+gpui::actions!(edit_menu, [Undo]);
+
+/// Keybinds
+pub fn bind_app_keys(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("ctrl-n", NewFile, None),
+        KeyBinding::new("ctrl-o", OpenFile, None),
+        KeyBinding::new("ctrl-s", SaveFile, None),
+        KeyBinding::new("ctrl-shift-s", SaveFileAs, None),
+        KeyBinding::new("ctrl-h", GoHome, None),
+        KeyBinding::new("ctrl-q", QuitApp, None),
+        KeyBinding::new("ctrl-z", Undo, None),
+    ]);
+}
 
 pub struct AppWindow {
     page: Page,
+    file_menu_open: bool,
+    edit_menu_open: bool,
+    focus_handle: FocusHandle,
 }
 
 impl AppWindow {
-    pub fn new(page: Page) -> Self {
-        Self { page }
+    pub fn new(page: Page, cx: &mut Context<Self>) -> Self {
+        Self { page, file_menu_open: false, edit_menu_open: false, focus_handle: cx.focus_handle() }
     }
 
     pub fn set_page(&mut self, page: Page, cx: &mut Context<Self>) {
         self.page = page;
+        // navigating away dismisses any open titlebar dropdown
+        self.file_menu_open = false;
+        self.edit_menu_open = false;
         cx.notify();
+    }
+
+    /// Are we on the editor page?
+    fn page_is_editor(&self) -> bool {
+        matches!(self.page, Page::Editor(_))
+    }
+
+    /// Whether "Undo" is currently available: on the editor page with a
+    /// non-empty undo history. Drives the Edit menu's greyed-out state.
+    fn can_undo(&self, cx: &App) -> bool {
+        match &self.page {
+            Page::Editor(editor) => editor.read(cx).can_undo(),
+            Page::Home(_) => false,
+        }
+    }
+
+    /// Toggles the File dropdown, closing the Edit dropdown (only one open at a time).
+    fn toggle_file_menu(&mut self, cx: &mut Context<Self>) {
+        self.file_menu_open = !self.file_menu_open;
+        self.edit_menu_open = false;
+        cx.notify();
+    }
+
+    /// Toggles the Edit dropdown, closing the File dropdown (only one open at a time).
+    fn toggle_edit_menu(&mut self, cx: &mut Context<Self>) {
+        self.edit_menu_open = !self.edit_menu_open;
+        self.file_menu_open = false;
+        cx.notify();
+    }
+
+    /// Closes any open titlebar dropdown (File or Edit).
+    fn close_menus(&mut self, cx: &mut Context<Self>) {
+        if self.file_menu_open || self.edit_menu_open {
+            self.file_menu_open = false;
+            self.edit_menu_open = false;
+            cx.notify();
+        }
+    }
+
+    /// Gets the `Entity<Editor>` if we're on the editor page. If we're not, returns `None`.
+    fn editor_entity(&self) -> Option<gpui::Entity<Editor>> {
+        match &self.page {
+            Page::Editor(editor) => Some(editor.clone()),
+            Page::Home(_) => None,
+        }
+    }
+
+    /// "New" button on "File" menu.
+    pub fn file_new(&mut self, cx: &mut Context<Self>) {
+        self.close_menus(cx);
+        match CanJson::new() {
+            Ok(file) => {
+                let nav = Navigator::new(cx.weak_entity());
+                let page = Page::editor(nav, cx, file);
+                self.set_page(page, cx);
+            }
+            Err(err) => eprintln!("New file failed: {err:?}"),
+        }
+    }
+
+    /// "Open" button on "File" menu.
+    pub fn file_open(&mut self, cx: &mut Context<Self>) {
+        self.close_menus(cx);
+        match CanJson::open() {
+            Ok(file) => {
+                let nav = Navigator::new(cx.weak_entity());
+                let page = Page::editor(nav, cx, file);
+                self.set_page(page, cx);
+            }
+            Err(err) => eprintln!("Open file failed: {err:?}"),
+        }
+    }
+
+    /// "Save" button on "File" menu.
+    /// If not on the editor page, this does nothing.
+    pub fn file_save(&mut self, cx: &mut Context<Self>) {
+        self.close_menus(cx);
+        if let Some(editor) = self.editor_entity() {
+            editor.update(cx, |editor, cx| {
+                editor.save();
+                cx.notify();
+            });
+        }
+    }
+
+    /// "Save As" button on "File" menu.
+    /// If not on the editor page, this does nothing.
+    pub fn file_save_as(&mut self, cx: &mut Context<Self>) {
+        self.close_menus(cx);
+        if let Some(editor) = self.editor_entity() {
+            editor.update(cx, |editor, cx| {
+                editor.save_as();
+                cx.notify();
+            });
+        }
+    }
+
+    /// "Home" button on "File" menu.
+    pub fn go_home(&mut self, cx: &mut Context<Self>) {
+        let nav = Navigator::new(cx.weak_entity());
+        let page = Page::home(nav, cx);
+        self.set_page(page, cx); // also dismisses the menu
+    }
+
+    /// "Exit" button on "File" menu.
+    pub fn exit(&mut self, _cx: &mut Context<Self>) {
+        _cx.quit();
+    }
+
+    /// "Undo" button on "Edit" menu.
+    pub fn undo(&mut self, cx: &mut Context<Self>) {
+        self.close_menus(cx);
+        if let Some(editor) = self.editor_entity() {
+            editor.update(cx, |editor, cx| {
+                editor.undo();
+                cx.notify();
+            });
+            cx.notify();
+        }
     }
 
     fn window_title(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -88,6 +230,8 @@ impl AppWindow {
     }
 }
 
+pub const TITLEBAR_HEIGHT_PX: f32 = 32.0;
+
 impl Render for AppWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         /* Main window settings. */
@@ -111,8 +255,43 @@ impl Render for AppWindow {
 
         window.set_client_inset(shadow_size);
 
+        // Keep the window root focused for keyboard shortcuts.
+        // Eventually probably should only grab focus on initial load in case we have other
+        // child windows (maybe for error popups and the like)
+        if !self.focus_handle.is_focused(window) {
+            window.focus(&self.focus_handle);
+        }
+
+        // Titlebar dropdowns (File / Edit) and their shared dismiss backdrop.
+        let file_menu = self
+            .file_menu_open
+            .then(|| file_dialog::file_menu(self.page_is_editor(), cx));
+        let edit_menu = self
+            .edit_menu_open
+            .then(|| edit_dialog::edit_menu(self.can_undo(cx), cx));
+        let menu_backdrop = (self.file_menu_open || self.edit_menu_open).then(|| {
+            div()
+                .absolute()
+                .inset_0()
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|app, _, _, cx| {
+                        app.close_menus(cx);
+                        cx.stop_propagation();
+                    }),
+                )
+        });
+
         div()
             .id("window-backdrop")
+            .track_focus(&self.focus_handle)
+            .on_action(cx.listener(|this, _: &NewFile, _, cx| this.file_new(cx)))
+            .on_action(cx.listener(|this, _: &OpenFile, _, cx| this.file_open(cx)))
+            .on_action(cx.listener(|this, _: &SaveFile, _, cx| this.file_save(cx)))
+            .on_action(cx.listener(|this, _: &SaveFileAs, _, cx| this.file_save_as(cx)))
+            .on_action(cx.listener(|this, _: &GoHome, _, cx| this.go_home(cx)))
+            .on_action(cx.listener(|this, _: &QuitApp, _, cx| this.exit(cx)))
+            .on_action(cx.listener(|this, _: &Undo, _, cx| this.undo(cx)))
             .bg(transparent_black())
             .map(|div| match decorations {
                 Decorations::Server => div,
@@ -215,7 +394,7 @@ impl Render for AppWindow {
                         // Titlebar
                         div()
                             .w_full()
-                            .h(px(32.0))
+                            .h(px(TITLEBAR_HEIGHT_PX))
                             .flex()
                             .items_center()
                             .bg(titlebar_color)
@@ -251,30 +430,52 @@ impl Render for AppWindow {
                                         )
                                     })
                                     .child(
-                                        button::button("file-button")
-                                            .text_color(rgb(0xCCCCCC))
-                                            .font_family("Cal Sans UI")
-                                            .p(px(5.0))
-                                            .rounded(px(5.0))
-                                            .font_weight(gpui::FontWeight(50.0))
-                                            .text_size(px(12.0))
-                                            .group("file-button")
-                                            .line_height(gpui::relative(1.0))
-                                            .child("File")
-                                            .hover(|s| s.bg(rgb(0x2D2D2D))),
+                                        div()
+                                            .relative()
+                                            .h_full()
+                                            .flex()
+                                            .items_center()
+                                            .child(
+                                                button::button("file-button")
+                                                    .text_color(rgb(0xCCCCCC))
+                                                    .font_family("Cal Sans UI")
+                                                    .p(px(5.0))
+                                                    .rounded(px(5.0))
+                                                    .font_weight(gpui::FontWeight(50.0))
+                                                    .text_size(px(12.0))
+                                                    .group("file-button")
+                                                    .line_height(gpui::relative(1.0))
+                                                    .child("File")
+                                                    .hover(|s| s.bg(rgb(0x2D2D2D)))
+                                                    .on_click(cx.listener(|app, _, _, cx| {
+                                                        app.toggle_file_menu(cx)
+                                                    })),
+                                            )
+                                            .children(file_menu),
                                     )
                                     .child(
-                                        button::button("edit-button")
-                                            .text_color(rgb(0xCCCCCC))
-                                            .font_family("Cal Sans UI")
-                                            .p(px(5.0))
-                                            .rounded(px(5.0))
-                                            .font_weight(gpui::FontWeight(50.0))
-                                            .text_size(px(12.0))
-                                            .group("edit-button")
-                                            .line_height(gpui::relative(1.0))
-                                            .child("Edit")
-                                            .hover(|s| s.bg(rgb(0x2D2D2D))),
+                                        div()
+                                            .relative()
+                                            .h_full()
+                                            .flex()
+                                            .items_center()
+                                            .child(
+                                                button::button("edit-button")
+                                                    .text_color(rgb(0xCCCCCC))
+                                                    .font_family("Cal Sans UI")
+                                                    .p(px(5.0))
+                                                    .rounded(px(5.0))
+                                                    .font_weight(gpui::FontWeight(50.0))
+                                                    .text_size(px(12.0))
+                                                    .group("edit-button")
+                                                    .line_height(gpui::relative(1.0))
+                                                    .child("Edit")
+                                                    .hover(|s| s.bg(rgb(0x2D2D2D)))
+                                                    .on_click(cx.listener(|app, _, _, cx| {
+                                                        app.toggle_edit_menu(cx)
+                                                    })),
+                                            )
+                                            .children(edit_menu),
                                     )
                                     .child(
                                         div()
@@ -387,7 +588,9 @@ impl Render for AppWindow {
                     .child(
                         // Content area.
                         div().flex_1().min_h_0().child(self.page.into_view()),
-                    ),
+                    )
+                    // Little guy that dismisses the File menu on an outside click
+                    .children(menu_backdrop),
             )
     }
 }

@@ -117,7 +117,7 @@ impl ScrollbarState {
         }
     }
 
-    /// Continue a drag: map the cursor position to a new scroll offset.
+    /// Continue a drag by mapping the cursor position to a new scroll offset.
     fn drag_to(&self, window_y: Pixels) {
         let grab = match *self.drag.borrow() {
             Some(g) => g,
