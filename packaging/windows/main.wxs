@@ -2,7 +2,7 @@
 <!--
   big C generated this file
 
-  WiX installer definition for gpui-test (Windows .msi).
+  WiX installer definition for can-json-gui (Windows .msi).
 
   This replaces the default template `cargo wix init` generates. That default is
   CLI-oriented: it installs the .exe and appends its folder to PATH, but creates
@@ -30,9 +30,9 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product
         Id="*"
-        Name="gpui-test"
+        Name="can-json-gui"
         UpgradeCode="359BC0FB-2BD7-4048-9B96-A6F0937EDD59"
-        Manufacturer="gpui-test"
+        Manufacturer="can-json-gui"
         Language="1033"
         Codepage="1252"
         Version="$(var.Version)">
@@ -40,8 +40,8 @@
         <Package
             Id="*"
             Keywords="Installer"
-            Description="gpui-test installer"
-            Manufacturer="gpui-test"
+            Description="can-json-gui installer"
+            Manufacturer="can-json-gui"
             InstallerVersion="450"
             Languages="1033"
             Compressed="yes"
@@ -50,7 +50,7 @@
 
         <MajorUpgrade
             Schedule="afterInstallInitialize"
-            DowngradeErrorMessage="A newer version of gpui-test is already installed. Setup will now exit." />
+            DowngradeErrorMessage="A newer version of can-json-gui is already installed. Setup will now exit." />
 
         <MediaTemplate EmbedCab="yes" />
 
@@ -62,7 +62,7 @@
 
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="$(var.PlatformProgramFilesFolder)">
-                <Directory Id="APPLICATIONFOLDER" Name="gpui-test">
+                <Directory Id="APPLICATIONFOLDER" Name="can-json-gui">
                     <!-- The .exe lives in its own per-machine component: the file in
                          Program Files is the keypath, so this component is
                          unambiguously per-machine (no per-user data), which keeps
@@ -70,8 +70,8 @@
                     <Component Id="binary0" Guid="*">
                         <File
                             Id="exe0"
-                            Name="gpui-test.exe"
-                            Source="$(var.CargoTargetBinDir)\gpui-test.exe"
+                            Name="can-json-gui.exe"
+                            Source="$(var.CargoTargetBinDir)\can-json-gui.exe"
                             KeyPath="yes" />
                     </Component>
 
@@ -91,20 +91,20 @@
                         <Shortcut
                             Id="StartMenuShortcut"
                             Directory="ProgramMenuFolder"
-                            Name="gpui-test"
-                            Description="gpui-test"
+                            Name="can-json-gui"
+                            Description="can-json-gui"
                             Target="[#exe0]"
                             WorkingDirectory="APPLICATIONFOLDER" />
                         <Shortcut
                             Id="DesktopShortcut"
                             Directory="DesktopFolder"
-                            Name="gpui-test"
-                            Description="gpui-test"
+                            Name="can-json-gui"
+                            Description="can-json-gui"
                             Target="[#exe0]"
                             WorkingDirectory="APPLICATIONFOLDER" />
                         <RegistryValue
                             Root="HKCU"
-                            Key="Software\gpui-test"
+                            Key="Software\can-json-gui"
                             Name="installed"
                             Type="integer"
                             Value="1"
@@ -122,7 +122,7 @@
 
         <Feature
             Id="MainApplication"
-            Title="gpui-test"
+            Title="can-json-gui"
             Level="1"
             ConfigurableDirectory="APPLICATIONFOLDER"
             Display="expand"

@@ -4,6 +4,7 @@ mod assets;
 mod components;
 mod pages;
 mod window;
+mod update;
 
 use assets::{Assets, fonts};
 use gpui::{

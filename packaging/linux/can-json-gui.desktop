@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=gpui-test
+Name=can-json-gui
 Comment=A GPUI desktop application
-Exec=gpui-test
-Icon=gpui-test
+Exec=can-json-gui
+Icon=can-json-gui
 Type=Application
 Categories=Utility;
 Terminal=false

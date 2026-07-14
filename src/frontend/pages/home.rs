@@ -14,6 +14,37 @@ const SUBTLE_TEXT_COLOR: u32 = 0xCCCCCC;
 const MUTED_TEXT_COLOR: u32 = 0x808080;
 const HOVER_COLOR: u32 = 0x3A3A3A;
 
+/// debug button
+fn check_update_button() -> impl IntoElement {
+    button::button("home-check-update")
+        .flex()
+        .items_center()
+        .justify_center()
+        .px(px(16.0))
+        .py(px(8.0))
+        .rounded(px(10.0))
+        .bg(rgb(BOX_COLOR))
+        .border(px(1.0))
+        .border_color(rgb(BORDER_COLOR))
+        .hover(|s| s.bg(rgb(HOVER_COLOR)))
+        .text_color(rgb(SUBTLE_TEXT_COLOR))
+        .text_size(px(12.0))
+        .child("Check for updates (debug)")
+        .on_click(|_, _, cx| {
+            cx.background_spawn(async {
+                use crate::frontend::update::{check_for_update, UpdateStatus};
+                match check_for_update() {
+                    Ok(UpdateStatus::UpToDate) => println!("we're up to date!!!"),
+                    Ok(UpdateStatus::Available(update_info)) => {
+                        println!("update available: {:?}", update_info);
+                    }
+                    Err(err) => println!("update error: {}", err),
+                }
+            })
+            .detach();
+        })
+}
+
 pub struct HomePage {
     nav: Navigator,
 
@@ -247,7 +278,7 @@ impl Render for HomePage {
                             .child(action_box),
                     )
                     // Right col thats empty for rn
-                    .child(div().child("temp text")),
+                    .child(check_update_button()),
             )
     }
 }

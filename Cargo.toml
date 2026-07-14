@@ -1,10 +1,10 @@
 [package]
-name = "gpui-test"
+name = "can-json-gui"
 version = "0.1.0"
 edition = "2024"
 description = "A GPUI desktop application."
 license = "MIT"
-authors = ["Your Name <you@example.com>"]
+authors = ["Blake Jackson <blakejackson312006@gmail.com>, John Claude"]
 
 [dependencies]
 anyhow = "1.0.103"
@@ -13,6 +13,9 @@ gpui = { package = "gpui-ce", version = "0.3" }
 json = { path = "json" }
 rust-embed = "8"
 thiserror = "2.0.18"
+ureq = { version = "2", features = ["json", "tls"] }
+serde = { version = "1", features = ["derive"] }
+semver = "1"
 
 [build-dependencies]
 embed-resource = "3"
@@ -30,20 +33,20 @@ panic = "abort"     # smaller binary, no unwinding cost; use only if you don't c
 [package.metadata.deb]
 section = "graphics"
 priority = "optional"
-extended-description = "A GPUI desktop application built with the gpui-ce crate."
+extended-description = "A desktop app for editing NER CAN JSON files."
 assets = [
-    ["target/release/gpui-test", "usr/bin/", "755"],
-    ["packaging/icon.svg", "usr/share/icons/hicolor/scalable/apps/gpui-test.svg", "644"],
-    ["packaging/linux/gpui-test.desktop", "usr/share/applications/", "644"],
+    ["target/release/can-json-gui", "usr/bin/", "755"],
+    ["packaging/icon.svg", "usr/share/icons/hicolor/scalable/apps/can-json-gui.svg", "644"],
+    ["packaging/linux/can-json-gui.desktop", "usr/share/applications/", "644"],
 ]
 
 [package.metadata.bundle]
-name = "gpui-test"
-identifier = "com.example.gpui-test"
+name = "can-json-gui"
+identifier = "com.example.can-json-gui"
 icon = ["icon.icns"]
 category = "public.app-category.developer-tools"
-short_description = "A GPUI desktop application."
-long_description = "A GPUI desktop application built with the gpui-ce crate."
+short_description = "A desktop app for editing NER CAN JSON files."
+long_description = "A desktop app for editing NER CAN JSON files."
 copyright = "Copyright (c) 2026"
 
 [workspace]

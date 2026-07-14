@@ -7,8 +7,54 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Compute the version for this build.
+  #
+  # Each successful run auto-bumps the PATCH component from the newest existing
+  # vX.Y.Z release, i.e. the smallest possible bump. Every build job embeds this
+  # version into Cargo.toml (via `cargo set-version`) so the compiled binary's
+  # CARGO_PKG_VERSION matches the published release tag -- which is exactly what
+  # the in-app updater compares against.
+  # ---------------------------------------------------------------------------
+  version:
+    name: Compute version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      tag: ${{ steps.compute.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute next version
+        id: compute
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Newest existing release tag of the form vX.Y.Z (empty on first run).
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+                    --jq '.[].tag_name' 2>/dev/null \
+                    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                    | sort -V | tail -1 || true)"
+
+          if [ -z "$latest" ]; then
+            # No releases yet: seed from Cargo.toml's version (no bump).
+            base="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')"
+            major="${base%%.*}"; rest="${base#*.}"; minor="${rest%%.*}"; patch="${rest#*.}"
+          else
+            v="${latest#v}"
+            major="${v%%.*}"; rest="${v#*.}"; minor="${rest%%.*}"; patch="${rest#*.}"
+            patch=$((patch + 1))   # smallest possible bump
+          fi
+
+          version="${major}.${minor}.${patch}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version"    >> "$GITHUB_OUTPUT"
+          echo "Computed version: $version"
+
   linux:
     name: Linux (.deb)
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +69,12 @@ jobs:
       - name: Install cargo-deb
         run: cargo install cargo-deb --locked
 
+      - name: Install cargo-edit
+        run: cargo install cargo-edit --locked
+
+      - name: Set build version
+        run: cargo set-version "${{ needs.version.outputs.version }}"
+
       - name: Build release binary
         run: cargo build --release
 
@@ -31,11 +83,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gpui-test-linux-deb
+          name: can-json-gui-linux-deb
           path: target/debian/*.deb
 
   windows:
     name: Windows (${{ matrix.arch }} .msi)
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +107,12 @@ jobs:
 
       - name: Install cargo-wix
         run: cargo install cargo-wix --locked
+
+      - name: Install cargo-edit
+        run: cargo install cargo-edit --locked
+
+      - name: Set build version
+        run: cargo set-version "${{ needs.version.outputs.version }}"
 
       - name: Install WiX Toolset v3
         shell: pwsh
@@ -82,15 +141,16 @@ jobs:
           Copy-Item packaging/windows/main.wxs wix/main.wxs -Force
 
       - name: Package as .msi
-        run: cargo wix --package gpui-test --no-build --bin-path "$env:WIX_BIN" --nocapture
+        run: cargo wix --package can-json-gui --no-build --bin-path "$env:WIX_BIN" --nocapture
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gpui-test-windows-${{ matrix.arch }}-msi
+          name: can-json-gui-windows-${{ matrix.arch }}-msi
           path: target/wix/*.msi
 
   macos:
     name: macOS (Universal .dmg)
+    needs: version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +163,12 @@ jobs:
 
       - name: Install system dependencies
         run: ./scripts/setup.sh
+
+      - name: Install cargo-edit
+        run: cargo install cargo-edit --locked
+
+      - name: Set build version
+        run: cargo set-version "${{ needs.version.outputs.version }}"
 
       - name: Generate icon.icns from icon.svg
         run: |
@@ -128,27 +194,27 @@ jobs:
       - name: Combine architectures into a universal binary
         run: |
           lipo -create \
-            target/x86_64-apple-darwin/release/gpui-test \
-            target/aarch64-apple-darwin/release/gpui-test \
-            -output target/aarch64-apple-darwin/release/bundle/osx/gpui-test.app/Contents/MacOS/gpui-test
+            target/x86_64-apple-darwin/release/can-json-gui \
+            target/aarch64-apple-darwin/release/can-json-gui \
+            -output target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.app/Contents/MacOS/can-json-gui
           # Sanity check: should print both architectures
-          lipo -info target/aarch64-apple-darwin/release/bundle/osx/gpui-test.app/Contents/MacOS/gpui-test
+          lipo -info target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.app/Contents/MacOS/can-json-gui
 
       - name: Package .app as .dmg
         run: |
-          hdiutil create -volname "gpui-test" \
-            -srcfolder "target/aarch64-apple-darwin/release/bundle/osx/gpui-test.app" \
+          hdiutil create -volname "can-json-gui" \
+            -srcfolder "target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.app" \
             -ov -format UDZO \
-            "target/aarch64-apple-darwin/release/bundle/osx/gpui-test.dmg"
+            "target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gpui-test-macos-dmg
+          name: can-json-gui-macos-dmg
           path: target/aarch64-apple-darwin/release/bundle/osx/*.dmg
 
   release:
-    name: Publish rolling release
-    needs: [linux, windows, macos]
+    name: Publish versioned release
+    needs: [version, linux, windows, macos]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -164,9 +230,10 @@ jobs:
       - name: List downloaded artifacts
         run: ls -lR artifacts
 
-      - name: Replace "latest" rolling release
+      - name: Create versioned release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
           mapfile -t files < <(find artifacts -type f)
@@ -174,11 +241,19 @@ jobs:
             echo "No artifacts found to upload" >&2
             exit 1
           fi
-          gh release delete latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
-          gh release create latest \
+
+          # If this exact tag already exists (e.g. a re-run), don't clobber it.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping."
+            exit 0
+          fi
+
+          # Publish an immutable, semver-tagged release. It is NOT marked as a
+          # prerelease so that the GitHub `/releases/latest` endpoint returns it,
+          # which is what the in-app updater queries.
+          gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Latest build" \
-            --prerelease \
-            --notes "Rolling build from \`main\` @ ${GITHUB_SHA}. Built by workflow run [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})." \
+            --title "$TAG" \
+            --notes "Release $TAG, built from \`main\` @ ${GITHUB_SHA}. Built by workflow run [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})." \
             "${files[@]}"
