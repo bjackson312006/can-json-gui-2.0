@@ -44,6 +44,11 @@ impl CanJson {
         &self.messages
     }
 
+    /// Returns the number of messages this JSON holds.
+    pub fn num_messages(&self) -> usize {
+        self.messages.len()
+    }
+
     /// Gets a message from an index.
     pub fn message(&self, index: usize) -> &OdysseyMsg {
         &self.messages[index]
@@ -51,7 +56,7 @@ impl CanJson {
 
     /// Removes the message at `index` from this file.
     pub fn remove_message(&mut self, index: usize) {
-        if index < self.messages.len() {
+        if index < self.num_messages() {
             self.messages.remove(index);
         }
     }
@@ -59,6 +64,13 @@ impl CanJson {
     /// Adds a new message to the end of the JSON.
     pub fn add_message(&mut self) {
         self.messages.push(OdysseyMsg::default());
+    }
+
+    /// Duplicates a particular message at in index.
+    pub fn duplicate_message(&mut self, index: usize) {
+        let duplicate = self.message(index).clone();
+        let duplicate_index = index + 1; // we want to put the duplicate right after the source message
+        self.messages.insert(duplicate_index, duplicate)
     }
 
     /// Replaces this file's message content, keeping the path and the on-disk

@@ -58,9 +58,13 @@ impl Editor {
             .child(
                 // Right-justified section
                 div()
-                    .flex_none()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(4.0))
                     .pl(px(8.0))
-                    .child(self.delete_button(message_index, cx)),
+                    .child(self.duplicate_button(message_index, cx))
+                    .child(self.delete_button(message_index, cx))
             )
             .on_click(move |_ev, _window, cx| {
                 if let Some(editor) = editor.upgrade() {
@@ -107,6 +111,36 @@ impl Editor {
                 if let Some(editor) = editor.upgrade() {
                     editor.update(cx, |editor, cx| {
                         editor.remove_message(message_index);
+                        cx.notify();
+                    });
+                }
+            })
+    }
+
+    fn duplicate_button(&self, message_index: usize, cx: &Context<Self>) -> Stateful<Div> {
+        const ICON_TEXT_COLOR: u32 = 0xb5b5b5;
+        const ICON_HOVER_BACKGROUND: u32 = 0x4a4949;
+        const ICON_SELECTED_HOVER_BACKGROUND: u32 = 0x3c5575;
+
+        let selected: bool = self.selected_index == Some(message_index);
+        let hover_background = if selected { ICON_SELECTED_HOVER_BACKGROUND } else { ICON_HOVER_BACKGROUND };
+
+        let editor = cx.entity().downgrade();
+        button::button(("duplicate-message", message_index))
+            .rounded(px(5.0))
+            .p(px(3.0))
+            .text_size(px(12.0))
+            .text_color(rgb(ICON_TEXT_COLOR))
+            .hover(|s| s.bg(rgb(hover_background)).text_color(rgb(ICON_TEXT_COLOR)))
+            .child(
+                crate::frontend::assets::icons::Duplicate::get()
+                    .size(px(11.0))
+                    .text_color(rgb(ICON_TEXT_COLOR)),
+            )
+            .on_click(move |_ev, _window, cx| {
+                if let Some(editor) = editor.upgrade() {
+                    editor.update(cx, |editor, cx| {
+                        editor.duplicate_message(message_index);
                         cx.notify();
                     });
                 }

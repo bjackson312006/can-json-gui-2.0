@@ -123,4 +123,5 @@ pub mod icons {
     icon!(Circle, "tabler-icons/filled/circle.svg");
     icon!(FolderOpen, "tabler-icons/outline/folder-open.svg");
     icon!(SquareRoundedPlus, "tabler-icons/outline/square-rounded-plus.svg");
+    icon!(Duplicate, "tabler-icons/outline/copy.svg");
 }

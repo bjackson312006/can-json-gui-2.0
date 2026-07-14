@@ -8,15 +8,21 @@ use crate::frontend::components::scrollbar::ScrollbarState;
 mod components;
 mod render;
 
+/// Editor state we wanna track for Undo
+struct UndoSnapshot {
+    messages: Vec<OdysseyMsg>,
+    selected_index: Option<usize>,
+}
+
 /// The undo history of the editor.
-/// This literally just holds a snapshot of the message list for every change
+/// This literally just holds a snapshot of the editor state for every change
 /// you make, going back `capacity` changes. Many would say this is inefficient.
 ///
 /// Also general rule of thumb: Whenever `CanJson`'s content is about to mutate
-/// we gotta push the current message list to the undo history first. See
+/// we gotta push the current editor state list to the undo history first. See
 /// `Editor::update_undo_history()`.
 struct UndoHistory {
-    items: VecDeque<Vec<OdysseyMsg>>,
+    items: VecDeque<UndoSnapshot>,
     capacity: usize,
 }
 
@@ -28,8 +34,8 @@ impl UndoHistory {
         }
     }
 
-    /// Pushes a message-list snapshot to the front of the undo history
-    fn push(&mut self, item: Vec<OdysseyMsg>) {
+    /// Pushes a snapshot to the front of the undo history
+    fn push(&mut self, item: UndoSnapshot) {
         if self.items.len() == self.capacity {
             self.items.pop_back(); // drop the oldest
         }
@@ -37,7 +43,7 @@ impl UndoHistory {
     }
 
     /// Take back the most recent in the undo history. Returns `None` if there's none left.
-    fn undo(&mut self) -> Option<Vec<OdysseyMsg>> {
+    fn undo(&mut self) -> Option<UndoSnapshot> {
         self.items.pop_front() // take back the most recent
     }
 
@@ -75,7 +81,10 @@ impl Editor {
 
     /// Snapshots the current message list into the undo history.
     fn update_undo_history(&mut self) {
-        self.undo_history.push(self.file.messages().to_vec());
+        self.undo_history.push(UndoSnapshot {
+            messages: self.file.messages().to_vec(),
+            selected_index: self.selected_index,
+        });
     }
 
     /// Runs a mutation against the open file, first snapshotting the current
@@ -104,10 +113,17 @@ impl Editor {
         self.scroll.scroll_to_bottom(); // new message renders at the bottom
     }
 
+    /// Duplicates a message.
+    pub fn duplicate_message(&mut self, index: usize) {
+        self.mutate(|file| file.duplicate_message(index));
+        self.selected_index = Some(index + 1);
+    }
+
     /// `Undo` operation.
     pub fn undo(&mut self) {
-        if let Some(messages) = self.undo_history.undo() {
-            self.file.set_messages(messages);
+        if let Some(snapshot) = self.undo_history.undo() {
+            self.file.set_messages(snapshot.messages);
+            self.selected_index = snapshot.selected_index;
             self.clamp_selection();
         }
     }
