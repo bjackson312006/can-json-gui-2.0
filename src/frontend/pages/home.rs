@@ -3,9 +3,10 @@ use std::path::{Path, PathBuf};
 use gpui::{Context, Render, Window, div, prelude::*, px, rgb, point, Hsla};
 
 use super::Navigator;
-use crate::frontend::{assets::fonts::FontFace, components::button};
+use crate::frontend::{assets::fonts::FontFace, components::button, update::{UpdateStatus, check_for_update}};
 
 const BACKGROUND_COLOR: u32 = 0x1F1F1F;
+const RIGHT_COLUMN_COLOR: u32 = 0x2A2A2A;
 const BOX_COLOR: u32 = 0x2A2A2A;
 const ACCENT_BLUE: u32 = 0x1473E6;
 const ACCENT_BLUE_HOVER: u32 = 0x2D7FF9;
@@ -14,42 +15,22 @@ const SUBTLE_TEXT_COLOR: u32 = 0xCCCCCC;
 const MUTED_TEXT_COLOR: u32 = 0x808080;
 const HOVER_COLOR: u32 = 0x3A3A3A;
 
-/// debug button
-fn check_update_button() -> impl IntoElement {
-    button::button("home-check-update")
-        .flex()
-        .items_center()
-        .justify_center()
-        .px(px(16.0))
-        .py(px(8.0))
-        .rounded(px(10.0))
-        .bg(rgb(BOX_COLOR))
-        .border(px(1.0))
-        .border_color(rgb(BORDER_COLOR))
-        .hover(|s| s.bg(rgb(HOVER_COLOR)))
-        .text_color(rgb(SUBTLE_TEXT_COLOR))
-        .text_size(px(12.0))
-        .child("Check for updates (debug)")
-        .on_click(|_, _, cx| {
-            cx.background_spawn(async {
-                use crate::frontend::update::{check_for_update, UpdateStatus};
-                match check_for_update() {
-                    Ok(UpdateStatus::UpToDate) => println!("we're up to date!!!"),
-                    Ok(UpdateStatus::Available(update_info)) => {
-                        println!("update available: {:?}", update_info);
-                    }
-                    Err(err) => println!("update error: {}", err),
-                }
-            })
-            .detach();
-        })
-}
-
 pub struct HomePage {
     nav: Navigator,
 
     /// List of recently-opened files
     recent: Vec<PathBuf>,
+
+    /// Stores update status
+    update_status: crate::frontend::update::UpdateStatus,
+
+    /// When an update check was last performed, or `None` if one hasn't run yet.
+    last_checked: Option<std::time::SystemTime>,
+}
+
+/// Helper to format std::time::SystemTime
+fn format_last_checked(last_checked: &Option<std::time::SystemTime>) -> std::string::String {
+    format!("Last checked:") // im gonna finish this tmorrow
 }
 
 impl HomePage {
@@ -57,6 +38,8 @@ impl HomePage {
         Self {
             nav,
             recent: crate::backend::recent::load(),
+            update_status: UpdateStatus::UpToDate,
+            last_checked: None,
         }
     }
 
@@ -65,6 +48,64 @@ impl HomePage {
         crate::backend::recent::remove(path);
         self.recent.retain(|existing| existing != path);
         cx.notify();
+    }
+
+    /// Async update check that updates `update_status`
+    pub fn check_update(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            // Blocking network call, kept off the UI thread.
+            let result = cx.background_spawn(async { check_for_update() }).await;
+
+            // Back on the UI thread: store the result and request a re-render.
+            this.update(cx, |this, cx| {
+                match result {
+                    Ok(status) => this.update_status = status,
+                    Err(err) => {
+                        // just gonna print it out for now but probably have a real GUI error in the future
+                        println!("error fetching update status: {}", err);
+                    }
+                }
+                // Record when this check completed, regardless of success.
+                this.last_checked = Some(std::time::SystemTime::now());
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Button that kicks off an update check.
+    fn check_update_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        button::button("home-check-update")
+            .flex()
+            .items_center()
+            .justify_center()
+            .w_full()
+            .px(px(24.0))
+            .py(px(8.0))
+            .rounded(px(10.0))
+            .bg(rgb(ACCENT_BLUE))
+            .hover(|s| s.bg(rgb(ACCENT_BLUE_HOVER)))
+            .text_color(rgb(0xFFFFFF))
+            .text_size(px(13.0))
+            .font_face(crate::frontend::assets::fonts::CalSansUiBold)
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(
+                        crate::frontend::assets::icons::Reload::get()
+                            .size(px(16.0))
+                            .text_color(rgb(0xFFFFFF)),
+                    )
+                    .child("Check now")
+                    .line_height(gpui::relative(1.0)),
+            )
+            .on_click(cx.listener(|this, _ev, _window, cx| {
+                this.check_update(cx);
+            }))
     }
 }
 
@@ -248,20 +289,62 @@ impl Render for HomePage {
             .child(left_section)
             .child(right_section);
 
-        const COLUMN_GAP: f32 = 300.0;
-
-        div()
-            .size_full()
+        let updates_box = div()
             .flex()
-            .items_center()
-            .justify_center()
-            .text_color(rgb(0xFFFFFF))
-            .font_family("Cal Sans UI")
+            .flex_col()
+            .gap(px(14.0))
+            .min_w(px(260.0))
+            .border(px(2.0))
+            .border_color(rgb(BORDER_COLOR))
+            .p(px(20.0))
+            .rounded(px(BUTTONS_ROUNDED))
+            .bg(rgb(BOX_COLOR))
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .gap(px(COLUMN_GAP))
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(
+                        crate::frontend::assets::icons::Reload::get()
+                            .size(px(18.0))
+                            .text_color(rgb(0xEEEEEE)),
+                    )
+                    .child(
+                        div()
+                            .text_color(rgb(0xEEEEEE))
+                            .text_size(px(15.0))
+                            .font_face(crate::frontend::assets::fonts::CalSansUiBold)
+                            .child("Check for updates"),
+                    ),
+            )
+            .child(
+                div()
+                    .text_color(rgb(MUTED_TEXT_COLOR))
+                    .text_size(px(12.0))
+                    .line_height(gpui::relative(1.3))
+                    .child(format!(
+                        "You're running version {}. Check GitHub to see if a newer release is available.",
+                        env!("CARGO_PKG_VERSION"),
+                    )),
+            )
+            .child(self.check_update_button(cx));
+
+        div()
+            .size_full()
+            .flex()
+            .flex_row()
+            .text_color(rgb(0xFFFFFF))
+            .font_family("Cal Sans UI")
+            .child(
+                div()
+                    .w(gpui::relative(0.6))
+                    .h_full()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .justify_center()
+                    .bg(rgb(BACKGROUND_COLOR))
                     .child(
                         div()
                             .flex()
@@ -276,9 +359,32 @@ impl Render for HomePage {
                                     .child("can-json-gui"),
                             )
                             .child(action_box),
+                    ),
+            )
+            .child(
+                div()
+                    .w(gpui::relative(0.4))
+                    .h_full()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .justify_center()
+                    .bg(rgb(RIGHT_COLUMN_COLOR))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .items_start()
+                            .gap(px(8.0))
+                            .child(
+                                div()
+                                    .text_color(rgb(0xEEEEEE))
+                                    .text_size(px(25.0))
+                                    .font_face(crate::frontend::assets::fonts::CalSansUiBold)
+                                    .child("Updates"),
+                            )
+                            .child(updates_box),
                     )
-                    // Right col thats empty for rn
-                    .child(check_update_button()),
             )
     }
 }
