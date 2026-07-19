@@ -11,9 +11,7 @@ const RIGHT_COLUMN_COLOR: u32 = 0x2A2A2A;
 const BOX_COLOR: u32 = 0x2A2A2A;
 const ACCENT_BLUE: u32 = 0x1473E6;
 const ACCENT_BLUE_HOVER: u32 = 0x2D7FF9;
-/// Same blue as `ACCENT_BLUE` but at ~35% alpha, for the faded "disabled" look.
 const ACCENT_BLUE_DISABLED: u32 = 0x1473E659;
-/// White text faded to ~50% alpha, to match the disabled button.
 const DISABLED_TEXT_COLOR: u32 = 0xFFFFFF80;
 const BORDER_COLOR: u32 = 0x454545;
 const SUBTLE_TEXT_COLOR: u32 = 0xCCCCCC;
@@ -89,6 +87,7 @@ impl HomePage {
     pub fn check_update(&mut self, cx: &mut Context<Self>) {
         self.last_checked = LastChecked::Checking;
         cx.spawn(async move |this, cx| {
+            gpui::Timer::after(std::time::Duration::from_secs(1)).await; // doing this just so you can't request too fast
             let result = cx.background_spawn(async { check_for_update() }).await;
             this.update(cx, |this, cx| {
                 match result {
@@ -180,8 +179,17 @@ impl HomePage {
 }
 
 impl Render for HomePage {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         const BUTTONS_ROUNDED: f32 = 10.0;
+
+        // Below this window width, hide the right column
+        const RIGHT_COLUMN_MIN_WIDTH: f32 = 1200.0;
+        let show_right_column = window.viewport_size().width >= px(RIGHT_COLUMN_MIN_WIDTH);
+        let left_column_width = if show_right_column {
+            gpui::relative(0.6)
+        } else {
+            gpui::relative(1.0)
+        };
 
         let open_button = button::button("home-open")
             .flex()
@@ -422,7 +430,7 @@ impl Render for HomePage {
             .font_family("Cal Sans UI")
             .child(
                 div()
-                    .w(gpui::relative(0.6))
+                    .w(left_column_width)
                     .h_full()
                     .flex()
                     .flex_col()
@@ -445,7 +453,7 @@ impl Render for HomePage {
                             .child(action_box),
                     ),
             )
-            .child(
+            .children(show_right_column.then(|| {
                 div()
                     .w(gpui::relative(0.4))
                     .h_full()
@@ -469,6 +477,6 @@ impl Render for HomePage {
                             )
                             .child(updates_box),
                     )
-            )
+            }))
     }
 }
