@@ -1,19 +1,36 @@
 use std::path::{Path, PathBuf};
 
-use gpui::{Context, Render, Window, div, prelude::*, px, rgb, point, Hsla};
+use gpui::{Context, Render, Window, div, prelude::*, px, rgb, rgba, point, Hsla};
 
 use super::Navigator;
-use crate::frontend::{assets::fonts::FontFace, components::button, update::{UpdateStatus, check_for_update}};
+use crate::frontend::{assets::fonts::FontFace, components::button, update::{UpdateStatus, UpdateError, check_for_update}};
+use chrono::{DateTime, Utc, Local};
 
 const BACKGROUND_COLOR: u32 = 0x1F1F1F;
 const RIGHT_COLUMN_COLOR: u32 = 0x2A2A2A;
 const BOX_COLOR: u32 = 0x2A2A2A;
 const ACCENT_BLUE: u32 = 0x1473E6;
 const ACCENT_BLUE_HOVER: u32 = 0x2D7FF9;
+/// Same blue as `ACCENT_BLUE` but at ~35% alpha, for the faded "disabled" look.
+const ACCENT_BLUE_DISABLED: u32 = 0x1473E659;
+/// White text faded to ~50% alpha, to match the disabled button.
+const DISABLED_TEXT_COLOR: u32 = 0xFFFFFF80;
 const BORDER_COLOR: u32 = 0x454545;
 const SUBTLE_TEXT_COLOR: u32 = 0xCCCCCC;
 const MUTED_TEXT_COLOR: u32 = 0x808080;
 const HOVER_COLOR: u32 = 0x3A3A3A;
+
+// Type for the LastChecked update state
+enum LastChecked {
+    /// Normal "last checked" time
+    Time(std::time::SystemTime),
+    
+    /// We are actively in the process of checking
+    Checking,
+
+    /// The last check attempt ended in an error
+    Error(UpdateError),
+}
 
 pub struct HomePage {
     nav: Navigator,
@@ -22,15 +39,10 @@ pub struct HomePage {
     recent: Vec<PathBuf>,
 
     /// Stores update status
-    update_status: crate::frontend::update::UpdateStatus,
+    update_status: UpdateStatus,
 
     /// When an update check was last performed, or `None` if one hasn't run yet.
-    last_checked: Option<std::time::SystemTime>,
-}
-
-/// Helper to format std::time::SystemTime
-fn format_last_checked(last_checked: &Option<std::time::SystemTime>) -> std::string::String {
-    format!("Last checked:") // im gonna finish this tmorrow
+    last_checked: LastChecked,
 }
 
 impl HomePage {
@@ -39,7 +51,30 @@ impl HomePage {
             nav,
             recent: crate::backend::recent::load(),
             update_status: UpdateStatus::UpToDate,
-            last_checked: None,
+            last_checked: LastChecked::Checking,
+        }
+    }
+
+    /// Gets our last checked system time and formats it into a string
+    fn format_last_checked(&self) -> std::string::String {
+        match &self.last_checked {
+            LastChecked::Time(time) => {
+                // The caller supplies the "Last checked: " prefix; return just the timestamp.
+                let time: DateTime<Local> = (*time).into();
+                return time.format("%Y/%m/%d %I:%M %p").to_string();
+            },
+            LastChecked::Checking => {
+                return String::from("Checking...");
+            },
+            LastChecked::Error(err) => {
+                match err {
+                    // not printing out the full errors here because would be kinda messy to expose to the user plainly on the gui
+                    // probably should have a way to actually show the full errors if needed but not going to do that rn
+                    UpdateError::Network(_) => { return format!("Error occured while checking: Network"); },
+                    UpdateError::Parse(_) => { return format!("Error occured while checking: Parse"); },
+                    UpdateError::Semver(_) => { return format!("Error occured while checking: Semver"); },
+                }
+            }
         }
     }
 
@@ -52,18 +87,22 @@ impl HomePage {
 
     /// Async update check that updates `update_status`
     pub fn check_update(&mut self, cx: &mut Context<Self>) {
+        self.last_checked = LastChecked::Checking;
         cx.spawn(async move |this, cx| {
             let result = cx.background_spawn(async { check_for_update() }).await;
-
             this.update(cx, |this, cx| {
                 match result {
-                    Ok(status) => this.update_status = status,
+                    Ok(status) => { 
+                        this.last_checked = LastChecked::Time(std::time::SystemTime::now());
+                        this.update_status = status;
+                    },
                     Err(err) => {
                         // just gonna print it out for now but probably have a real GUI error in the future
                         println!("error fetching update status: {}", err);
-                    }
-                }
-                this.last_checked = Some(std::time::SystemTime::now());
+                        this.last_checked = LastChecked::Error(err);
+                        
+                    },
+                };
                 cx.notify();
             })
             .ok();
@@ -71,9 +110,21 @@ impl HomePage {
         .detach();
     }
 
-    /// Button that kicks off an update check.
-    fn check_update_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        button::button("home-check-update")
+    /// Opens the update's GitHub release page in the user's default web browser.
+    fn download_update(&mut self) {
+        let UpdateStatus::Available(info) = &self.update_status else {
+            return;
+        };
+        if let Err(err) = webbrowser::open(&info.release_url) {
+            println!("failed to open the release page in a browser: {err}");
+        }
+    }
+
+    /// Button that lets you download an update from GitHub if possible. When no update is available, button is disabled.
+    fn download_update_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let update_available = matches!(self.update_status, UpdateStatus::Available(_));
+
+        let base = button::button("home-download-update")
             .flex()
             .items_center()
             .justify_center()
@@ -81,9 +132,6 @@ impl HomePage {
             .px(px(24.0))
             .py(px(8.0))
             .rounded(px(10.0))
-            .bg(rgb(ACCENT_BLUE))
-            .hover(|s| s.bg(rgb(ACCENT_BLUE_HOVER)))
-            .text_color(rgb(0xFFFFFF))
             .text_size(px(13.0))
             .font_face(crate::frontend::assets::fonts::CalSansUiBold)
             .child(
@@ -92,13 +140,38 @@ impl HomePage {
                     .flex_row()
                     .items_center()
                     .gap(px(8.0))
-                    .child(
-                        crate::frontend::assets::icons::Reload::get()
-                            .size(px(16.0))
-                            .text_color(rgb(0xFFFFFF)),
-                    )
-                    .child("Check now")
+                    .child("Download (via GitHub)")
                     .line_height(gpui::relative(1.0)),
+            );
+
+        if update_available {
+            base.bg(rgb(ACCENT_BLUE))
+                .hover(|s| s.bg(rgb(ACCENT_BLUE_HOVER)))
+                .text_color(rgb(0xFFFFFF))
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _ev, _window, _cx| {
+                    this.download_update();
+                }))
+        } else {
+            base.bg(rgba(ACCENT_BLUE_DISABLED))
+                .text_color(rgba(DISABLED_TEXT_COLOR))
+        }
+    }
+
+    /// Small icon button that re-runs the update check.
+    fn recheck_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        const ICON_TEXT_COLOR: u32 = 0xB5B5B5;
+        const ICON_HOVER_BACKGROUND: u32 = 0x4A4949;
+
+        button::button("home-recheck-update")
+            .rounded(px(5.0))
+            .p(px(3.0))
+            .text_color(rgb(ICON_TEXT_COLOR))
+            .hover(|s| s.bg(rgb(ICON_HOVER_BACKGROUND)).text_color(rgb(ICON_TEXT_COLOR)))
+            .child(
+                crate::frontend::assets::icons::Reload::get()
+                    .size(px(11.0))
+                    .text_color(rgb(ICON_TEXT_COLOR)),
             )
             .on_click(cx.listener(|this, _ev, _window, cx| {
                 this.check_update(cx);
@@ -286,11 +359,20 @@ impl Render for HomePage {
             .child(left_section)
             .child(right_section);
 
+        
+        let update_available_text: String = match &self.update_status {
+            UpdateStatus::Available(update) => {
+                String::from(format!("Update available! (current version: v{}, new version: v{})", env!("CARGO_PKG_VERSION"), update.version))
+            },
+            UpdateStatus::UpToDate => {
+                String::from(format!("You are up to date! (current version: v{})", env!("CARGO_PKG_VERSION")))
+            }
+        };
         let updates_box = div()
             .flex()
             .flex_col()
-            .gap(px(14.0))
-            .min_w(px(260.0))
+            .gap(px(10.0))
+            .min_w(px(460.0))
             .border(px(2.0))
             .border_color(rgb(BORDER_COLOR))
             .p(px(20.0))
@@ -303,7 +385,7 @@ impl Render for HomePage {
                     .items_center()
                     .gap(px(8.0))
                     .child(
-                        crate::frontend::assets::icons::Reload::get()
+                        crate::frontend::assets::icons::ExclamationCircle::get()
                             .size(px(18.0))
                             .text_color(rgb(0xEEEEEE)),
                     )
@@ -313,20 +395,25 @@ impl Render for HomePage {
                             .text_size(px(15.0))
                             .font_face(crate::frontend::assets::fonts::CalSansUiBold)
                             .child("Check for updates"),
-                    ),
+                    )
+                    .child(self.recheck_button(cx)),
             )
             .child(
                 div()
                     .text_color(rgb(MUTED_TEXT_COLOR))
                     .text_size(px(12.0))
                     .line_height(gpui::relative(1.3))
-                    .child(format!(
-                        "You're running version {}. Check GitHub to see if a newer release is available.",
-                        env!("CARGO_PKG_VERSION"),
-                    )),
+                    .child(update_available_text)
             )
-            .child(self.check_update_button(cx));
-
+            .child(
+                div()
+                    .text_color(rgb(MUTED_TEXT_COLOR))
+                    .text_size(px(12.0))
+                    .line_height(gpui::relative(1.3))
+                    .child(format!("Last checked: {}", self.format_last_checked())),
+            )
+            .child(self.download_update_button(cx));
+            // .child(format!("You're running version {}.", env!("CARGO_PKG_VERSION"))),
         div()
             .size_full()
             .flex()

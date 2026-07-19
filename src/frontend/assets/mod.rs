@@ -125,4 +125,5 @@ pub mod icons {
     icon!(SquareRoundedPlus, "tabler-icons/outline/square-rounded-plus.svg");
     icon!(Duplicate, "tabler-icons/outline/copy.svg");
     icon!(Reload, "tabler-icons/outline/reload.svg");
+    icon!(ExclamationCircle, "tabler-icons/outline/exclamation-circle.svg");
 }

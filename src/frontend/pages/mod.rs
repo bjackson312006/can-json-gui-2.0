@@ -48,7 +48,13 @@ pub enum Page {
 
 impl Page {
     pub fn home(nav: Navigator, cx: &mut App) -> Self {
-        Page::Home(cx.new(|_| HomePage::new(nav)))
+        Page::Home(cx.new(|cx| {
+            let mut page = HomePage::new(nav);
+            // Check for an update at startup so the "Download Update" button
+            // reflects whether one is available (it stays disabled otherwise).
+            page.check_update(cx);
+            page
+        }))
     }
 
     pub fn editor(nav: Navigator, cx: &mut App, file: CanJson) -> Self {
