@@ -12,9 +12,11 @@ const CARD_BORDER_SIZE: Pixels = px(1.0);
 const CARD_SHADOW_SIZE: Pixels = px(4.0);
 const CARD_HOVER_COLOR: u32 = 0x363636;
 const CARD_BACKGROUND_COLOR: u32 = 0x2D2D2D;
-const CARD_SELECTED_BACKGROUND_COLOR: u32 = 0x26364A;
-const CARD_SELECTED_BORDER_COLOR: u32 = 0x4E7DBA;
-const CARD_SELECTED_HOVER_COLOR: u32 = 0x2E4460;
+// Selected cards echo the home menu's accent blue (0x1473E6): that blue as the
+// border, over a dark tint of it for the fill (kept dark so text stays legible).
+const CARD_SELECTED_BACKGROUND_COLOR: u32 = 0x1E3350;
+const CARD_SELECTED_BORDER_COLOR: u32 = 0x1473E6;
+const CARD_SELECTED_HOVER_COLOR: u32 = 0x274A78;
 
 impl Editor {
     /// Outer message card!

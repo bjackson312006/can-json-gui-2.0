@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use gpui::{Context, Render, Window, div, prelude::*, px, rgb, rgba, point, Hsla};
+use gpui::{App, Context, Render, Window, div, prelude::*, px, rgb, rgba, point, Hsla};
 
 use super::Navigator;
-use crate::frontend::{assets::fonts::FontFace, components::button, update::{UpdateStatus, UpdateError, check_for_update}};
+use crate::frontend::{assets::fonts::FontFace, components::button, update::{UpdateStatus, UpdateError}};
 use chrono::{DateTime, Utc, Local};
 
 const BACKGROUND_COLOR: u32 = 0x1F1F1F;
@@ -18,11 +18,11 @@ const SUBTLE_TEXT_COLOR: u32 = 0xCCCCCC;
 const MUTED_TEXT_COLOR: u32 = 0x808080;
 const HOVER_COLOR: u32 = 0x3A3A3A;
 
-// Type for the LastChecked update state
+// Which state the last update check is in.
 enum LastChecked {
-    /// Normal "last checked" time
+    /// A check completed at this time.
     Time(std::time::SystemTime),
-    
+
     /// We are actively in the process of checking
     Checking,
 
@@ -30,17 +30,86 @@ enum LastChecked {
     Error(UpdateError),
 }
 
+/// The app's update checking state.
+pub struct UpdateState {
+    status: UpdateStatus,
+    last_checked: LastChecked,
+}
+
+impl UpdateState {
+    pub fn new() -> Self {
+        Self {
+            status: UpdateStatus::UpToDate,
+            last_checked: LastChecked::Checking,
+        }
+    }
+
+    /// Whether a newer release is available to download.
+    pub fn update_available(&self) -> bool {
+        matches!(self.status, UpdateStatus::Available(_))
+    }
+
+    /// Link to the available release's page, if an update is available.
+    pub fn release_url(&self) -> Option<&str> {
+        match &self.status {
+            UpdateStatus::Available(info) => Some(&info.release_url),
+            UpdateStatus::UpToDate => None,
+        }
+    }
+
+    /// One-line availability summary shown in the Updates box.
+    pub fn availability_text(&self) -> String {
+        match &self.status {
+            UpdateStatus::Available(update) => format!(
+                "Update available! (current version: v{}, new version: v{})",
+                env!("CARGO_PKG_VERSION"),
+                update.version
+            ),
+            UpdateStatus::UpToDate => format!(
+                "You are up to date! (current version: v{})",
+                env!("CARGO_PKG_VERSION")
+            ),
+        }
+    }
+
+    /// The "last checked" time as text.
+    pub fn last_checked_text(&self) -> String {
+        match &self.last_checked {
+            LastChecked::Time(time) => {
+                let time: DateTime<Local> = (*time).into();
+                time.format("%Y/%m/%d %I:%M %p").to_string()
+            }
+            LastChecked::Checking => String::from("Checking..."),
+            LastChecked::Error(err) => match err {
+                UpdateError::Network(_) => String::from("Error occured while checking: Network"),
+                UpdateError::Parse(_) => String::from("Error occured while checking: Parse"),
+                UpdateError::Semver(_) => String::from("Error occured while checking: Semver"),
+            },
+        }
+    }
+
+    /// Marks that a check is now in progress.
+    pub fn set_checking(&mut self) {
+        self.last_checked = LastChecked::Checking;
+    }
+
+    /// Records a completed check, stamped with the current time.
+    pub fn set_result(&mut self, status: UpdateStatus) {
+        self.status = status;
+        self.last_checked = LastChecked::Time(std::time::SystemTime::now());
+    }
+
+    /// Records a failed check.
+    pub fn set_error(&mut self, err: UpdateError) {
+        self.last_checked = LastChecked::Error(err);
+    }
+}
+
 pub struct HomePage {
     nav: Navigator,
 
     /// List of recently-opened files
     recent: Vec<PathBuf>,
-
-    /// Stores update status
-    update_status: UpdateStatus,
-
-    /// When an update check was last performed, or `None` if one hasn't run yet.
-    last_checked: LastChecked,
 }
 
 impl HomePage {
@@ -48,31 +117,6 @@ impl HomePage {
         Self {
             nav,
             recent: crate::backend::recent::load(),
-            update_status: UpdateStatus::UpToDate,
-            last_checked: LastChecked::Checking,
-        }
-    }
-
-    /// Gets our last checked system time and formats it into a string
-    fn format_last_checked(&self) -> std::string::String {
-        match &self.last_checked {
-            LastChecked::Time(time) => {
-                // The caller supplies the "Last checked: " prefix; return just the timestamp.
-                let time: DateTime<Local> = (*time).into();
-                return time.format("%Y/%m/%d %I:%M %p").to_string();
-            },
-            LastChecked::Checking => {
-                return String::from("Checking...");
-            },
-            LastChecked::Error(err) => {
-                match err {
-                    // not printing out the full errors here because would be kinda messy to expose to the user plainly on the gui
-                    // probably should have a way to actually show the full errors if needed but not going to do that rn
-                    UpdateError::Network(_) => { return format!("Error occured while checking: Network"); },
-                    UpdateError::Parse(_) => { return format!("Error occured while checking: Parse"); },
-                    UpdateError::Semver(_) => { return format!("Error occured while checking: Semver"); },
-                }
-            }
         }
     }
 
@@ -83,46 +127,21 @@ impl HomePage {
         cx.notify();
     }
 
-    /// Async update check that updates `update_status`
-    pub fn check_update(&mut self, cx: &mut Context<Self>) {
-        self.last_checked = LastChecked::Checking;
-        cx.spawn(async move |this, cx| {
-            gpui::Timer::after(std::time::Duration::from_secs(1)).await; // doing this just so you can't request too fast
-            let result = cx.background_spawn(async { check_for_update() }).await;
-            this.update(cx, |this, cx| {
-                match result {
-                    Ok(status) => { 
-                        this.last_checked = LastChecked::Time(std::time::SystemTime::now());
-                        this.update_status = status;
-                    },
-                    Err(err) => {
-                        // just gonna print it out for now but probably have a real GUI error in the future
-                        println!("error fetching update status: {}", err);
-                        this.last_checked = LastChecked::Error(err);
-                        
-                    },
-                };
-                cx.notify();
-            })
-            .ok();
-        })
-        .detach();
-    }
-
     /// Opens the update's GitHub release page in the user's default web browser.
-    fn download_update(&mut self) {
-        let UpdateStatus::Available(info) = &self.update_status else {
-            return;
-        };
-        if let Err(err) = webbrowser::open(&info.release_url) {
+    /// The release to open comes from the update state cached on the AppWindow.
+    fn download_update(&self, cx: &App) {
+        let url = self
+            .nav
+            .read_app(cx, |app| app.update_state().release_url().map(str::to_string))
+            .flatten();
+        let Some(url) = url else { return };
+        if let Err(err) = webbrowser::open(&url) {
             println!("failed to open the release page in a browser: {err}");
         }
     }
 
     /// Button that lets you download an update from GitHub if possible. When no update is available, button is disabled.
-    fn download_update_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let update_available = matches!(self.update_status, UpdateStatus::Available(_));
-
+    fn download_update_button(&self, update_available: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let base = button::button("home-download-update")
             .flex()
             .items_center()
@@ -148,8 +167,8 @@ impl HomePage {
                 .hover(|s| s.bg(rgb(ACCENT_BLUE_HOVER)))
                 .text_color(rgb(0xFFFFFF))
                 .cursor_pointer()
-                .on_click(cx.listener(|this, _ev, _window, _cx| {
-                    this.download_update();
+                .on_click(cx.listener(|this, _ev, _window, cx| {
+                    this.download_update(cx);
                 }))
         } else {
             base.bg(rgba(ACCENT_BLUE_DISABLED))
@@ -173,7 +192,7 @@ impl HomePage {
                     .text_color(rgb(ICON_TEXT_COLOR)),
             )
             .on_click(cx.listener(|this, _ev, _window, cx| {
-                this.check_update(cx);
+                this.nav.with_app(cx, |app, cx| app.check_update(cx));
             }))
     }
 }
@@ -368,14 +387,18 @@ impl Render for HomePage {
             .child(right_section);
 
         
-        let update_available_text: String = match &self.update_status {
-            UpdateStatus::Available(update) => {
-                String::from(format!("Update available! (current version: v{}, new version: v{})", env!("CARGO_PKG_VERSION"), update.version))
-            },
-            UpdateStatus::UpToDate => {
-                String::from(format!("You are up to date! (current version: v{})", env!("CARGO_PKG_VERSION")))
-            }
-        };
+        // Update state is cached on the AppWindow so it survives navigation.
+        let (update_available, availability_text, last_checked_text) = self
+            .nav
+            .read_app(cx, |app| {
+                let state = app.update_state();
+                (
+                    state.update_available(),
+                    state.availability_text(),
+                    state.last_checked_text(),
+                )
+            })
+            .unwrap_or_else(|| (false, String::new(), String::from("Checking...")));
         let updates_box = div()
             .flex()
             .flex_col()
@@ -411,17 +434,16 @@ impl Render for HomePage {
                     .text_color(rgb(MUTED_TEXT_COLOR))
                     .text_size(px(12.0))
                     .line_height(gpui::relative(1.3))
-                    .child(update_available_text)
+                    .child(availability_text)
             )
             .child(
                 div()
                     .text_color(rgb(MUTED_TEXT_COLOR))
                     .text_size(px(12.0))
                     .line_height(gpui::relative(1.3))
-                    .child(format!("Last checked: {}", self.format_last_checked())),
+                    .child(format!("Last checked: {}", last_checked_text)),
             )
-            .child(self.download_update_button(cx));
-            // .child(format!("You're running version {}.", env!("CARGO_PKG_VERSION"))),
+            .child(self.download_update_button(update_available, cx));
         div()
             .size_full()
             .flex()

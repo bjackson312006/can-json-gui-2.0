@@ -56,7 +56,9 @@ pub fn start() {
 
                     let nav = Navigator::new(cx.weak_entity());
                     let home_page = Page::home(nav, cx);
-                    AppWindow::new(home_page, cx)
+                    let mut app_window = AppWindow::new(home_page, cx);
+                    app_window.check_update(cx);
+                    app_window
                 })
             },
         )

@@ -5,7 +5,7 @@ use gpui::{
 };
 
 use crate::frontend::{
-    assets::{fonts::FontFace, icons}, components::{button, file_dialog, edit_dialog}, pages::{Editor, Navigator, Page},
+    assets::{fonts::FontFace, icons}, components::{button, file_dialog, edit_dialog}, pages::{Editor, Navigator, Page, UpdateState}, update::check_for_update,
 };
 use json::CanJson;
 
@@ -27,6 +27,7 @@ pub fn bind_app_keys(cx: &mut App) {
 
 pub struct AppWindow {
     page: Page,
+    update_state: UpdateState,
     file_menu_open: bool,
     edit_menu_open: bool,
     focus_handle: FocusHandle,
@@ -34,7 +35,35 @@ pub struct AppWindow {
 
 impl AppWindow {
     pub fn new(page: Page, cx: &mut Context<Self>) -> Self {
-        Self { page, file_menu_open: false, edit_menu_open: false, focus_handle: cx.focus_handle() }
+        Self { page, update_state: UpdateState::new(), file_menu_open: false, edit_menu_open: false, focus_handle: cx.focus_handle() }
+    }
+
+    /// The cached update-check state.
+    pub fn update_state(&self) -> &UpdateState {
+        &self.update_state
+    }
+
+    /// Runs an update check in the background and refreshes the cached state.
+    pub fn check_update(&mut self, cx: &mut Context<Self>) {
+        self.update_state.set_checking();
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            gpui::Timer::after(std::time::Duration::from_secs(1)).await; // rate-limit so you can't request too fast
+            let result = cx.background_spawn(async { check_for_update() }).await;
+            this.update(cx, |this, cx| {
+                match result {
+                    Ok(status) => this.update_state.set_result(status),
+                    Err(err) => {
+                        // just gonna print it out for now but probably have a real GUI error in the future
+                        println!("error fetching update status: {}", err);
+                        this.update_state.set_error(err);
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub fn set_page(&mut self, page: Page, cx: &mut Context<Self>) {

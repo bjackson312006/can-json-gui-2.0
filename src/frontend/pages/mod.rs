@@ -3,7 +3,7 @@
 mod home;
 mod editor;
 
-pub use home::HomePage;
+pub use home::{HomePage, UpdateState};
 pub use editor::Editor;
 
 use gpui::{AnyView, App, Context, Entity, WeakEntity, prelude::*};
@@ -28,7 +28,7 @@ impl Navigator {
     }
 
     /// Runs `f` against the parent `AppWindow`, if it's still alive.
-    /// 
+    ///
     /// Realistically (I think) this should never return None during normal operation since `AppWindow` is the big guy that owns
     /// all the pages and such. It could probably return None during teardown (i.e., when the user closes the app) but returning None
     /// is fine then since the apps gonna be gone in like a second anyway
@@ -39,6 +39,11 @@ impl Navigator {
     ) -> Option<R> {
         self.app.upgrade().map(|app| app.update(cx, f))
     }
+
+    /// Reads the parent `AppWindow` immutably, if it's still alive.
+    pub fn read_app<R>(&self, cx: &App, f: impl FnOnce(&AppWindow) -> R) -> Option<R> {
+        self.app.upgrade().map(|app| f(app.read(cx)))
+    }
 }
 
 pub enum Page {
@@ -47,14 +52,9 @@ pub enum Page {
 }
 
 impl Page {
+    /// Creates the home page.
     pub fn home(nav: Navigator, cx: &mut App) -> Self {
-        Page::Home(cx.new(|cx| {
-            let mut page = HomePage::new(nav);
-            // Check for an update at startup so the "Download Update" button
-            // reflects whether one is available (it stays disabled otherwise).
-            page.check_update(cx);
-            page
-        }))
+        Page::Home(cx.new(|_| HomePage::new(nav)))
     }
 
     pub fn editor(nav: Navigator, cx: &mut App, file: CanJson) -> Self {
