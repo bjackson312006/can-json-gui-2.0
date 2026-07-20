@@ -470,7 +470,7 @@ impl Render for HomePage {
                                     .text_color(rgb(0xEEEEEE))
                                     .text_size(px(40.0))
                                     .font_face(crate::frontend::assets::fonts::CalSansUiBold)
-                                    .child("can-json-gui"),
+                                    .child("can-json-gui-2.0"),
                             )
                             .child(action_box),
                     ),

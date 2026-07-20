@@ -207,7 +207,7 @@ impl AppWindow {
     }
 
     fn window_title(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        const WINDOW_TITLE: &'static str = "can-json-gui";
+        const WINDOW_TITLE: &'static str = "can-json-gui-2.0";
         const WINDOW_TITLE_COLOR: u32 = 0xCCCCCC;
         fn homepage() -> Div {
             div()

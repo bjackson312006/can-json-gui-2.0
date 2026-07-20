@@ -83,7 +83,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: can-json-gui-linux-deb
+          name: can-json-gui-2.0-linux-deb
           path: target/debian/*.deb
 
   windows:
@@ -141,11 +141,11 @@ jobs:
           Copy-Item packaging/windows/main.wxs wix/main.wxs -Force
 
       - name: Package as .msi
-        run: cargo wix --package can-json-gui --no-build --bin-path "$env:WIX_BIN" --nocapture
+        run: cargo wix --package can-json-gui-2.0 --no-build --bin-path "$env:WIX_BIN" --nocapture
 
       - uses: actions/upload-artifact@v4
         with:
-          name: can-json-gui-windows-${{ matrix.arch }}-msi
+          name: can-json-gui-2.0-windows-${{ matrix.arch }}-msi
           path: target/wix/*.msi
 
   macos:
@@ -194,22 +194,22 @@ jobs:
       - name: Combine architectures into a universal binary
         run: |
           lipo -create \
-            target/x86_64-apple-darwin/release/can-json-gui \
-            target/aarch64-apple-darwin/release/can-json-gui \
-            -output target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.app/Contents/MacOS/can-json-gui
+            target/x86_64-apple-darwin/release/can-json-gui-2.0 \
+            target/aarch64-apple-darwin/release/can-json-gui-2.0 \
+            -output target/aarch64-apple-darwin/release/bundle/osx/can-json-gui-2.0.app/Contents/MacOS/can-json-gui-2.0
           # Sanity check: should print both architectures
-          lipo -info target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.app/Contents/MacOS/can-json-gui
+          lipo -info target/aarch64-apple-darwin/release/bundle/osx/can-json-gui-2.0.app/Contents/MacOS/can-json-gui-2.0
 
       - name: Package .app as .dmg
         run: |
-          hdiutil create -volname "can-json-gui" \
-            -srcfolder "target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.app" \
+          hdiutil create -volname "can-json-gui-2.0" \
+            -srcfolder "target/aarch64-apple-darwin/release/bundle/osx/can-json-gui-2.0.app" \
             -ov -format UDZO \
-            "target/aarch64-apple-darwin/release/bundle/osx/can-json-gui.dmg"
+            "target/aarch64-apple-darwin/release/bundle/osx/can-json-gui-2.0.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: can-json-gui-macos-dmg
+          name: can-json-gui-2.0-macos-dmg
           path: target/aarch64-apple-darwin/release/bundle/osx/*.dmg
 
   release:

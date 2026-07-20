@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Directory name used under the OS config directory.
-const APP_DIR: &str = "can-json-gui";
+const APP_DIR: &str = "can-json-gui-2.0";
 
 /// File the recent list is stored in.
 const RECENT_FILE: &str = "recent.txt";
