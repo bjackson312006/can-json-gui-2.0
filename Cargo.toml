@@ -1,5 +1,5 @@
 [package]
-name = "can-json-gui-2"
+name = "can-json-gui-two"
 version = "0.1.0"
 edition = "2024"
 description = "A GPUI desktop application."
@@ -39,14 +39,14 @@ section = "graphics"
 priority = "optional"
 extended-description = "A desktop app for editing NER CAN JSON files."
 assets = [
-    ["target/release/can-json-gui-2.0", "usr/bin/", "755"],
-    ["packaging/icon.svg", "usr/share/icons/hicolor/scalable/apps/can-json-gui-2.0.svg", "644"],
-    ["packaging/linux/can-json-gui-2.0.desktop", "usr/share/applications/", "644"],
+    ["target/release/can-json-gui-two", "usr/bin/", "755"],
+    ["packaging/icon.svg", "usr/share/icons/hicolor/scalable/apps/can-json-gui-two.svg", "644"],
+    ["packaging/linux/can-json-gui-two.desktop", "usr/share/applications/", "644"],
 ]
 
 [package.metadata.bundle]
-name = "can-json-gui-2.0"
-identifier = "com.example.can-json-gui-2"
+name = "can-json-gui-two"
+identifier = "com.example.can-json-gui-two"
 icon = ["icon.icns"]
 category = "public.app-category.developer-tools"
 short_description = "A desktop app for editing NER CAN JSON files."

@@ -737,7 +737,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "can-json-gui-2"
+name = "can-json-gui-two"
 version = "0.1.0"
 dependencies = [
  "anyhow",

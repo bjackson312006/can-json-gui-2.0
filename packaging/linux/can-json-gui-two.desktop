@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=can-json-gui-2.0
+Name=can-json-gui-two
 Comment=A GPUI desktop application
-Exec=can-json-gui-2.0
-Icon=can-json-gui-2.0
+Exec=can-json-gui-two
+Icon=can-json-gui-two
 Type=Application
 Categories=Utility;
 Terminal=false
